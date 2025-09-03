@@ -8,7 +8,7 @@ class Config:
     BATCHLEADS_PASSWORD = os.getenv('BATCHLEADS_PASSWORD')
     FILTER_ZIP = os.getenv('FILTER_ZIP')
     IMPLICIT_WAIT = int(os.getenv('IMPLICIT_WAIT', 10))
-    PAGE_LOAD_WAIT = int(os.getenv('PAGE_LOAD_WAIT', 3))
+    PAGE_LOAD_WAIT = int(os.getenv('PAGE_LOAD_WAIT', 5))
     MAX_PAGES = int(os.getenv('MAX_PAGES', 3))
     
     BASE_URL = 'https://app.batchleads.io/'

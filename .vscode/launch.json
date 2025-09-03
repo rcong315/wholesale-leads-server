@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug BatchLeads Scraper",
+            "name": "FastAPI Server",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/batchleads_main.py",
+            "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
@@ -15,39 +15,10 @@
             "python": "${workspaceFolder}/venv/bin/python"
         },
         {
-            "name": "Debug Scraper (Headless Mode)",
+            "name": "Debug Scraper Module",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/batchleads_main.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "envFile": "${workspaceFolder}/.env",
-            "args": [],
-            "justMyCode": true,
-            "stopOnEntry": false,
-            "python": "${workspaceFolder}/venv/bin/python",
-            "env": {
-                "HEADLESS_MODE": "true"
-            }
-        },
-        {
-            "name": "Debug Auth Module Only",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/auth.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "envFile": "${workspaceFolder}/.env",
-            "args": [],
-            "justMyCode": true,
-            "stopOnEntry": false,
-            "python": "${workspaceFolder}/venv/bin/python"
-        },
-        {
-            "name": "Debug Scraper Module Only",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/batchleads_scraper.py",
+            "program": "${workspaceFolder}/scraper/scraper.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
