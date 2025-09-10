@@ -6,16 +6,15 @@ load_dotenv()
 class Config:
     BATCHLEADS_EMAIL = os.getenv('BATCHLEADS_EMAIL')
     BATCHLEADS_PASSWORD = os.getenv('BATCHLEADS_PASSWORD')
-    FILTER_ZIP = os.getenv('FILTER_ZIP')
-    IMPLICIT_WAIT = int(os.getenv('IMPLICIT_WAIT', 10))
-    PAGE_LOAD_WAIT = int(os.getenv('PAGE_LOAD_WAIT', 5))
-    MAX_PAGES = int(os.getenv('MAX_PAGES', 3))
+    MAX_PAGES = int(os.getenv('MAX_PAGES', 99))
     
     BASE_URL = 'https://app.batchleads.io/'
+
+    HEADLESS = os.getenv('HEADLESS', 'true').lower() in ('true', '1', 't')
     
     @classmethod
     def validate(cls):
-        required_vars = ['BATCHLEADS_EMAIL', 'BATCHLEADS_PASSWORD', 'FILTER_ZIP']
+        required_vars = ['BATCHLEADS_EMAIL', 'BATCHLEADS_PASSWORD']
         missing_vars = [var for var in required_vars if not getattr(cls, var)]
         
         if missing_vars:

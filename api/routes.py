@@ -5,5 +5,5 @@ app = FastAPI()
 
 @app.post("/scrape/{zip_code}")
 async def scrape_leads(zip_code: str):
-    result = scrape_by_zip(zip_code)
+    result = await scrape_by_zip(zip_code)
     return result

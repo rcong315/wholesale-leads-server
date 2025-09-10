@@ -18,7 +18,7 @@
             "name": "Debug Scraper Module",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/scraper/scraper.py",
+            "module": "scraper.scraper",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
