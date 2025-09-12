@@ -2,6 +2,7 @@ import time
 import logging
 import pandas as pd
 import json
+import os
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 
@@ -191,16 +192,39 @@ class BatchLeadsScraper:
             logger.error(f"Failed to save data to CSV: {e}")
             return False
 
-async def scrape_by_zip(zip_code, headless=None):
+async def scrape_by_zip(zip_code, headless=None, use_cache=True):
+    filename = f"batchleads_data_{zip_code}.json"
+    
+    # Check if cached file exists
+    if use_cache and os.path.exists(filename):
+        try:
+            with open(filename, 'r') as f:
+                cached_data = json.load(f)
+            logger.info(f"Returning cached data for zip code {zip_code}")
+            return {
+                "zip_code": zip_code,
+                "total_leads": len(cached_data),
+                "leads": cached_data,
+                "cached": True
+            }
+        except Exception as e:
+            logger.warning(f"Failed to load cached data: {e}")
+    
+    # If no cache or cache loading failed, scrape fresh data
     config = Config()
     scraper = BatchLeadsScraper(config)
     
     try:
         leads = await scraper.scrape_all_pages(zip_code, headless=headless)
+        if len(leads) > 0:
+            csv_filename = f"batchleads_data_{zip_code}.csv"
+            scraper.save_to_csv(csv_filename)
+            scraper.save_to_json(filename)
         return {
             "zip_code": zip_code,
             "total_leads": len(leads),
-            "leads": leads
+            "leads": leads,
+            "cached": False
         }
     except Exception as e:
         logger.error(f"Error in scrape_by_zip: {e}")
