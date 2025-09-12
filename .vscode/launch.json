@@ -15,13 +15,32 @@
             "python": "${workspaceFolder}/venv/bin/python"
         },
         {
-            "name": "Debug Scraper Module",
+            "name": "Debug Scraper (Headless)",
             "type": "python",
             "request": "launch",
             "module": "scraper.scraper",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "HEADLESS": "true"
+            },
+            "args": [],
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Debug Scraper (Non-Headless)",
+            "type": "python",
+            "request": "launch",
+            "module": "scraper.scraper",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "HEADLESS": "false"
+            },
             "args": [],
             "justMyCode": true,
             "stopOnEntry": false,

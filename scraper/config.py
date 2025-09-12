@@ -10,7 +10,7 @@ class Config:
     
     BASE_URL = 'https://app.batchleads.io/'
 
-    HEADLESS = os.getenv('HEADLESS', 'true').lower() in ('true', '1', 't')
+    HEADLESS = os.getenv('HEADLESS', 'true').lower() in ('true', '1', 't', 'yes')
     
     @classmethod
     def validate(cls):

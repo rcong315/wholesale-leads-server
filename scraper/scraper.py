@@ -3,6 +3,7 @@ import logging
 import pandas as pd
 import json
 from playwright.async_api import async_playwright
+from bs4 import BeautifulSoup
 
 from scraper.config import Config
 
@@ -16,92 +17,37 @@ class BatchLeadsScraper:
     async def login(self, page):
         try:
             await page.goto(f"{self.config.BASE_URL}login")
-            await page.wait_for_load_state('networkidle')
+            await page.wait_for_timeout(3000)
             
-            # Try multiple common selectors for email input
-            email_selectors = [
-                'input[type="email"]',
-                'input[name="email"]',
-                'input[id="email"]',
-                'input[placeholder*="email" i]',
-                'input[placeholder*="Email" i]',
-                '#email',
-                '.email-input',
-                'input:first-of-type'
-            ]
-            
-            email_filled = False
-            for selector in email_selectors:
-                try:
-                    await page.wait_for_selector(selector, timeout=3000)
-                    await page.fill(selector, self.config.BATCHLEADS_EMAIL)
-                    email_filled = True
-                    logger.info(f"Email filled using selector: {selector}")
-                    break
-                except:
-                    continue
-            
-            if not email_filled:
+            try:
+                await page.wait_for_selector('input[formcontrolname="email"]', timeout=3000)
+                await page.fill('input[formcontrolname="email"]', self.config.BATCHLEADS_EMAIL)
+                logger.info("Email filled using selector: input[formcontrolname=\"email\"]")
+            except:
                 logger.error("Could not find email input field")
                 return False
             
-            # Try multiple common selectors for password input
-            password_selectors = [
-                'input[type="password"]',
-                'input[name="password"]',
-                'input[id="password"]',
-                '#password',
-                '.password-input'
-            ]
-            
-            password_filled = False
-            for selector in password_selectors:
-                try:
-                    await page.wait_for_selector(selector, timeout=3000)
-                    await page.fill(selector, self.config.BATCHLEADS_PASSWORD)
-                    password_filled = True
-                    logger.info(f"Password filled using selector: {selector}")
-                    break
-                except:
-                    continue
-            
-            if not password_filled:
+            try:
+                await page.wait_for_selector('input[formcontrolname="password"]', timeout=3000)
+                await page.fill('input[formcontrolname="password"]', self.config.BATCHLEADS_PASSWORD)
+                logger.info("Password filled using selector: input[formcontrolname=\"password\"]")
+            except:
                 logger.error("Could not find password input field")
                 return False
             
-            # Try multiple common selectors for submit button
-            submit_selectors = [
-                'button[type="submit"]',
-                'input[type="submit"]',
-                'button:has-text("Log in")',
-                'button:has-text("Login")',
-                'button:has-text("Sign in")',
-                '.login-button',
-                '.submit-button'
-            ]
-            
-            submit_clicked = False
-            for selector in submit_selectors:
-                try:
-                    await page.wait_for_selector(selector, timeout=3000)
-                    await page.click(selector)
-                    submit_clicked = True
-                    logger.info(f"Submit clicked using selector: {selector}")
-                    break
-                except:
-                    continue
-            
-            if not submit_clicked:
-                logger.error("Could not find submit button")
+            try:
+                await page.wait_for_selector('button[type="submit"]', timeout=3000)
+                await page.click('button[type="submit"]')
+                logger.info("Submit clicked using selector: button[type=\"submit\"]")
+            except:
+                logger.error("Could not find or click submit button")
                 return False
             
-            await page.wait_for_load_state('networkidle')
+            try:
+                await page.wait_for_url(lambda url: 'login' not in url, timeout=10000)
+            except:
+                await page.wait_for_load_state('networkidle', timeout=10000)
             
-            if 'login' in page.url:
-                logger.error("Login failed - still on login page")
-                return False
-                
-            logger.info("Login successful")
             return True
             
         except Exception as e:
@@ -110,75 +56,33 @@ class BatchLeadsScraper:
     
     async def scrape_leads_by_zip(self, page, zip_code, page_num=1):
         try:
-            search_url = f"{self.config.BASE_URL}leads?zip={zip_code}&page={page_num}&limit=50"
-            await page.goto(search_url)
-            await page.wait_for_load_state('networkidle')
+            # Get the page HTML content
+            html_content = await page.content()
             
-            await page.wait_for_timeout(3000)
+            # Parse HTML with BeautifulSoup
+            soup = BeautifulSoup(html_content, 'html.parser')
+            leads_data = []
             
-            leads_data = await page.evaluate("""
-                () => {
-                    const leads = [];
-                    
-                    const leadRows = document.querySelectorAll('[data-testid="lead-row"], .lead-item, .property-row, tr[data-lead-id]');
-                    if (leadRows.length > 0) {
-                        leadRows.forEach(row => {
-                            const lead = {};
-                            
-                            const addressEl = row.querySelector('[data-field="address"], .address, .property-address');
-                            if (addressEl) lead.property_address = addressEl.textContent.trim();
-                            
-                            const cityEl = row.querySelector('[data-field="city"], .city');
-                            if (cityEl) lead.city = cityEl.textContent.trim();
-                            
-                            const stateEl = row.querySelector('[data-field="state"], .state');
-                            if (stateEl) lead.state = stateEl.textContent.trim();
-                            
-                            const zipEl = row.querySelector('[data-field="zip"], .zip');
-                            if (zipEl) lead.zip = zipEl.textContent.trim();
-                            
-                            const ownerEl = row.querySelector('[data-field="owner"], .owner, .owner-name');
-                            if (ownerEl) lead.owner = ownerEl.textContent.trim();
-                            
-                            const valueEl = row.querySelector('[data-field="value"], .value, .property-value');
-                            if (valueEl) lead.value = valueEl.textContent.trim();
-                            
-                            const phoneEl = row.querySelector('[data-field="phone"], .phone');
-                            if (phoneEl) lead.phone = phoneEl.textContent.trim();
-                            
-                            const emailEl = row.querySelector('[data-field="email"], .email');
-                            if (emailEl) lead.email = emailEl.textContent.trim();
-                            
-                            if (Object.keys(lead).length > 0) {
-                                leads.push(lead);
-                            }
-                        });
-                    } else {
-                        const tableRows = document.querySelectorAll('table tbody tr');
-                        if (tableRows.length > 0) {
-                            const headers = Array.from(document.querySelectorAll('table thead th')).map(th => th.textContent.trim().toLowerCase());
-                            
-                            tableRows.forEach(row => {
-                                const cells = Array.from(row.querySelectorAll('td'));
-                                if (cells.length === headers.length) {
-                                    const lead = {};
-                                    cells.forEach((cell, index) => {
-                                        const header = headers[index];
-                                        if (header) {
-                                            lead[header] = cell.textContent.trim();
-                                        }
-                                    });
-                                    if (Object.keys(lead).length > 0) {
-                                        leads.push(lead);
-                                    }
-                                }
-                            });
-                        }
-                    }
-                    
-                    return leads;
-                }
-            """)
+            # Method 1: Look for table structures
+            tables = soup.find_all('table')
+            for table in tables:
+                headers = []
+                
+                # Get headers
+                header_row = table.find('thead')
+                if header_row:
+                    headers = [th.get_text().strip() for th in header_row.find_all(['th', 'td'])][3:]
+                
+                # Get data rows
+                tbody = table.find('tbody') or table
+                data_rows = tbody.find_all('tr')
+                
+                for row in data_rows:
+                    cells = [td.get_text().strip() for td in row.find_all(['td', 'th'])][2:]
+                    if cells and len(cells) > 1:
+                        lead = dict(zip(headers, cells))
+                        leads_data.append(lead)
+                        logger.debug(f"Extracted lead: {lead['Property Address']}")
             
             logger.info(f"Found {len(leads_data)} leads on page {page_num}")
             return leads_data
@@ -187,12 +91,27 @@ class BatchLeadsScraper:
             logger.error(f"Scraping error: {e}")
             return []
     
-    async def scrape_all_pages(self, zip_code):
+    async def scrape_all_pages(self, zip_code, headless=None):
         browser = None
         try:
             playwright = await async_playwright().start()
-            browser = await playwright.chromium.launch(headless=self.config.HEADLESS)
-            context = await browser.new_context()
+            use_headless = headless if headless is not None else self.config.HEADLESS
+            browser = await playwright.chromium.launch(
+                headless=use_headless,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--disable-gpu'
+                ] if use_headless else []
+            )
+            context = await browser.new_context(
+                user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                viewport={'width': 1920, 'height': 1080}
+            )
             page = await context.new_page()
             
             if not await self.login(page):
@@ -201,6 +120,21 @@ class BatchLeadsScraper:
             all_leads = []
             page_num = 1
             max_pages = self.config.MAX_PAGES
+
+            search_url = f"{self.config.BASE_URL}app/mylist-new"
+            await page.goto(search_url)
+            await page.wait_for_timeout(3000)
+            
+            # Fill in the ZIP code filter if available
+            try:
+                zip_input = await page.query_selector('input[id="placeInput"]')
+                if zip_input:
+                    await zip_input.fill(str(zip_code))
+                    await page.wait_for_timeout(500)
+                    await zip_input.press("Enter")
+                    await page.wait_for_timeout(3000)
+            except Exception:
+                pass
             
             while page_num <= max_pages:
                 leads = await self.scrape_leads_by_zip(page, zip_code, page_num)
@@ -211,6 +145,13 @@ class BatchLeadsScraper:
                 all_leads.extend(leads)
                 logger.info(f"Page {page_num}: Added {len(leads)} leads")
                 page_num += 1
+
+                next_button = await page.query_selector('a[aria-label="Next"]')
+                if next_button and await next_button.is_enabled():
+                    await next_button.click()
+                    await page.wait_for_timeout(3000)
+                else:
+                    break
             
             self.all_data = all_leads
             return all_leads
@@ -250,12 +191,12 @@ class BatchLeadsScraper:
             logger.error(f"Failed to save data to CSV: {e}")
             return False
 
-async def scrape_by_zip(zip_code):
+async def scrape_by_zip(zip_code, headless=None):
     config = Config()
     scraper = BatchLeadsScraper(config)
     
     try:
-        leads = await scraper.scrape_all_pages(zip_code)
+        leads = await scraper.scrape_all_pages(zip_code, headless=headless)
         return {
             "zip_code": zip_code,
             "total_leads": len(leads),
@@ -264,3 +205,9 @@ async def scrape_by_zip(zip_code):
     except Exception as e:
         logger.error(f"Error in scrape_by_zip: {e}")
         return {"error": str(e)}
+    
+if __name__ == "__main__":
+    import asyncio
+    zip_code = "92618"
+    result = asyncio.run(scrape_by_zip(zip_code))
+    print(f"Found {result.get('total_leads', 0)} leads")
