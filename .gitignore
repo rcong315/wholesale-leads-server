@@ -4,3 +4,5 @@ venv/
 .DS_Store
 *.log
 scraped_data/
+google_drive/key.json
+credentials.json

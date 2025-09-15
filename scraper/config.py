@@ -14,6 +14,9 @@ class Config:
     
     # Cache expiration in days (default: 7 days)
     CACHE_EXPIRATION_DAYS = int(os.getenv('CACHE_EXPIRATION_DAYS', 7))
+
+    # Scraped data directory (default: scraped_data)
+    SCRAPED_DATA_DIR = os.getenv('SCRAPED_DATA_DIR', 'scraped_data')
     
     @classmethod
     def validate(cls):
