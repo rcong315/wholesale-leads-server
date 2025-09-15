@@ -5,6 +5,8 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaIoBaseDownload
+import io
 
 from google_drive.config import Config
 
@@ -62,22 +64,27 @@ class GoogleDriveAPI:
             file_name = f"batchleads_data_{zip_code}.json"
             query = f"name = '{file_name}' and '{self.config.GOOGLE_DRIVE_DIR_ID}' in parents"
 
-            results = (
-                self.service.files()
-                .list(q=query, pageSize=10, fields="nextPageToken, files(id, name)")
-                .execute()
-            )
+            results = self.service.files().list(q=query, fields="files(id)").execute()
             items = results.get("files", [])
 
             if not items:
-                print("No files found.")
-                return
-            print("Files:")
-            for item in items:
-                print(f"{item['name']} ({item['id']})")
-        except HttpError as error:
-            # TODO(developer) - Handle errors from drive API.
-            print(f"An error occurred: {error}")
+                return None
+
+            file_id = items[0]['id']
+            request = self.service.files().get_media(fileId=file_id)
+
+            file_content = io.BytesIO()
+            downloader = MediaIoBaseDownload(file_content, request)
+
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+
+            file_content.seek(0)
+            return file_content.read().decode('utf-8')
+
+        except HttpError:
+            return None
 
     def upload(self, zip_code, data):
         pass
