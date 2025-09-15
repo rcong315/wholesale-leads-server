@@ -1,12 +1,14 @@
 import os.path
 import logging
+import json
+from datetime import datetime
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 import io
 
 from google_drive.config import Config
@@ -53,13 +55,32 @@ class GoogleDriveAPI:
             items = results.get("files", [])
 
             if not items:
-                logger.info("No files found.")
-                return
-            logger.info("Files:")
-            for item in items:
-                logger.info(f"{item['name']} ({item['id']})")
+                logger.info("No files found in Google Drive.")
+                return []
+
+            logger.info(f"Found {len(items)} files in Google Drive")
+            return items
         except HttpError as error:
-            logger.error(f"An error occurred: {error}")
+            logger.error(f"Error listing files: {error}")
+            return []
+
+    def get_existing_zip_codes(self):
+        try:
+            files = self.list_files()
+            zip_codes = set()
+
+            for file in files:
+                name = file["name"]
+                # Extract zip code from filename pattern: batchleads_data_{zip_code}.json
+                if name.startswith("batchleads_data_") and name.endswith(".json"):
+                    zip_code = name.replace("batchleads_data_", "").replace(".json", "")
+                    zip_codes.add(zip_code)
+
+            logger.info(f"Found {len(zip_codes)} existing zip codes in cache")
+            return zip_codes
+        except Exception as error:
+            logger.error(f"Error getting existing zip codes: {error}")
+            return set()
 
     def download(self, zip_code):
         try:
@@ -86,7 +107,9 @@ class GoogleDriveAPI:
 
             file_content.seek(0)
             content = file_content.read().decode("utf-8")
-            logger.info(f"Successfully downloaded {file_name} ({len(content)} characters)")
+            logger.info(
+                f"Successfully downloaded {file_name} ({len(content)} characters)"
+            )
             return content
 
         except HttpError as error:
@@ -100,8 +123,10 @@ class GoogleDriveAPI:
                 "name": file_name,
                 "parents": [self.config.GOOGLE_DRIVE_DIR_ID],
             }
-            media = io.BytesIO(data.encode("utf-8"))
-            media.seek(0)
+
+            media = MediaIoBaseUpload(
+                io.BytesIO(data.encode("utf-8")), mimetype="application/json"
+            )
 
             query = f"name = '{file_name}' and '{self.config.GOOGLE_DRIVE_DIR_ID}' in parents"
             results = self.service.files().list(q=query, fields="files(id)").execute()
@@ -135,9 +160,65 @@ class GoogleDriveAPI:
                 )
                 logger.info(f"Successfully created file: {file_name}")
                 return new_file
-        except HttpError as error:
+        except (HttpError, Exception) as error:
             logger.error(f"Error uploading {file_name}: {error}")
             return None
+
+    def load_cache(self, zip_code):
+        try:
+            content = self.download(zip_code)
+            if not content:
+                return None
+
+            cached_file = json.loads(content)
+            cache_timestamp = datetime.fromisoformat(cached_file["timestamp"])
+            cached_data = cached_file["leads"]
+
+            if cached_data is not None:
+                cache_age_days = (datetime.now() - cache_timestamp).days
+                if cache_age_days < self.config.CACHE_EXPIRATION_DAYS:
+                    logger.info(
+                        f"Returning cached data for zip code {zip_code} (age: {cache_age_days} days)"
+                    )
+                    return {
+                        "zip_code": zip_code,
+                        "total_leads": len(cached_data),
+                        "leads": cached_data,
+                        "cached": True,
+                        "cache_age_days": cache_age_days,
+                    }
+                else:
+                    logger.info(
+                        f"Cache expired for zip code {zip_code} (age: {cache_age_days} days)"
+                    )
+
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
+            logger.warning(f"Malformed cache file for zip code {zip_code}: {error}")
+        except Exception as error:
+            logger.error(f"Error loading cache for zip code {zip_code}: {error}")
+
+        return None
+
+    def save_cache(self, zip_code, leads_data):
+        try:
+            file_name = f"batchleads_data_{zip_code}.json"
+            cache_data = {
+                "timestamp": datetime.now().isoformat(),
+                "leads": leads_data,
+            }
+            data_json = json.dumps(cache_data, indent=2)
+
+            result = self.upload(file_name, data_json)
+            if result:
+                logger.info(f"Successfully cached data for zip code {zip_code}")
+                return True
+            else:
+                logger.error(f"Failed to cache data for zip code {zip_code}")
+                return False
+
+        except Exception as error:
+            logger.error(f"Error saving cache for zip code {zip_code}: {error}")
+            return False
 
 
 if __name__ == "__main__":

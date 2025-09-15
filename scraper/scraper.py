@@ -1,14 +1,13 @@
 import time
 import logging
 import pandas as pd
-import json
-import os
 import asyncio
 from datetime import datetime
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 
 from scraper.config import Config
+from google_drive.api import GoogleDriveAPI
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +52,7 @@ class BatchLeadsScraper:
         try:
             page = await self.context.new_page()
 
-            await page.goto(f"{self.config.BASE_URL}login")
+            await page.goto(f"{self.config.BATCHLEADS_BASE_URL}login")
             await page.wait_for_timeout(3000)
 
             try:
@@ -147,8 +146,12 @@ class BatchLeadsScraper:
             page_num = 1
             max_pages = self.config.MAX_PAGES
 
-            page = await self.context.on()
-            search_url = f"{self.config.BASE_URL}app/mylist-new"
+            page = (
+                self.context.pages[0]
+                if self.context.pages
+                else await self.context.new_page()
+            )
+            search_url = f"{self.config.BATCHLEADS_BASE_URL}app/mylist-new"
             await page.goto(search_url)
             await page.wait_for_timeout(3000)
 
@@ -185,24 +188,6 @@ class BatchLeadsScraper:
             logger.error(f"Scraper error: {e}")
             return []
 
-    def save_to_json(self, filename="leads_data.json"):
-        if not self.all_data:
-            logger.warning("No data to save")
-            return False
-
-        try:
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "leads": self.all_data,
-            }
-            with open(filename, "w") as f:
-                json.dump(cache_data, f, indent=2)
-            logger.info(f"Data saved to {filename}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to save data to JSON: {e}")
-            return False
-
     def save_to_csv(self, filename="batchleads_data.csv"):
         if not self.all_data:
             logger.warning("No data to save")
@@ -223,49 +208,19 @@ class BatchLeadsScraper:
 
 
 def load_cache(zip_code):
-    config = Config()
-
-    data_dir = config.SCRAPED_DATA_DIR
-    filename = os.path.join(data_dir, f"batchleads_data_{zip_code}.json")
-
-    if os.path.exists(filename):
-        try:
-            with open(filename, "r") as f:
-                cached_file = json.load(f)
-            cache_timestamp = datetime.fromisoformat(cached_file["timestamp"])
-            cached_data = cached_file["leads"]
-
-            # Check if cache is still valid
-            if cached_data is not None:
-                cache_age_days = (datetime.now() - cache_timestamp).days
-                if cache_age_days < config.CACHE_EXPIRATION_DAYS:
-                    logger.info(
-                        f"Returning cached data for zip code {zip_code} (age: {cache_age_days} days)"
-                    )
-                    return {
-                        "zip_code": zip_code,
-                        "total_leads": len(cached_data),
-                        "leads": cached_data,
-                        "cached": True,
-                        "cache_age_days": cache_age_days,
-                    }
-                else:
-                    logger.info(
-                        f"Cache expired for zip code {zip_code} (age: {cache_age_days} days)"
-                    )
-        except (KeyError, TypeError, ValueError):
-            logger.warning(
-                f"Malformed cache file for zip code {zip_code}, ignoring cache"
-            )
-    return None
+    try:
+        drive_api = GoogleDriveAPI()
+        return drive_api.load_cache(zip_code)
+    except Exception as error:
+        logger.error(
+            f"Failed to load cache from Google Drive for zip code {zip_code}: {error}"
+        )
+        return None
 
 
 async def scrape(zip_codes, headless=None, use_cache=True):
     config = Config()
-
-    # Create data directory if it doesn't exist
-    data_dir = config.SCRAPED_DATA_DIR
-    os.makedirs(data_dir, exist_ok=True)
+    drive_api = GoogleDriveAPI()
 
     scraper = BatchLeadsScraper(config)
     await scraper.init_browser(headless=headless)
@@ -280,19 +235,14 @@ async def scrape(zip_codes, headless=None, use_cache=True):
             yield cached_data
             continue
 
-        else:
-            # If no cache or cache loading failed, scrape fresh data
-            try:
-                leads = await scraper.scrape_zip_code(zip_code)
-                if len(leads) > 0:
-                    csv_filename = os.path.join(
-                        data_dir, f"batchleads_data_{zip_code}.csv"
-                    )
-                    scraper.save_to_csv(csv_filename)
-                    json_filename = os.path.join(
-                        data_dir, f"batchleads_data_{zip_code}.json"
-                    )
-                    scraper.save_to_json(json_filename)
+        # If no cache or cache loading failed, scrape fresh data
+        try:
+            leads = await scraper.scrape_zip_code(zip_code)
+            if len(leads) > 0:
+                # Save to Google Drive cache
+                if drive_api:
+                    drive_api.save_cache(zip_code, leads)
+
                 yield {
                     "zip_code": zip_code,
                     "total_leads": len(leads),
@@ -300,15 +250,23 @@ async def scrape(zip_codes, headless=None, use_cache=True):
                     "cached": False,
                     "cache_age_days": 0,
                 }
-            except Exception as e:
-                logger.error(f"Error in scrape: {e}")
-                yield {"error": str(e)}
+            else:
+                yield {
+                    "zip_code": zip_code,
+                    "total_leads": 0,
+                    "leads": [],
+                    "cached": False,
+                    "cache_age_days": 0,
+                }
+        except Exception as e:
+            logger.error(f"Error in scrape: {e}")
+            yield {"error": str(e)}
 
     await scraper.close()
 
 
 if __name__ == "__main__":
-    zip_codes = ["92618", "94588", "90001"]
+    zip_codes = ["94588", "94928", "90001"]
 
     async def main():
         async for result in scrape(zip_codes, use_cache=False):

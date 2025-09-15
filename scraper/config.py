@@ -3,27 +3,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class Config:
-    BATCHLEADS_EMAIL = os.getenv('BATCHLEADS_EMAIL')
-    BATCHLEADS_PASSWORD = os.getenv('BATCHLEADS_PASSWORD')
-    MAX_PAGES = int(os.getenv('MAX_PAGES', 99))
-    
-    BASE_URL = 'https://app.batchleads.io/'
+    BATCHLEADS_EMAIL = os.getenv("BATCHLEADS_EMAIL")
+    BATCHLEADS_PASSWORD = os.getenv("BATCHLEADS_PASSWORD")
+    MAX_PAGES = int(os.getenv("MAX_PAGES", 99))
 
-    HEADLESS = os.getenv('HEADLESS', 'true').lower() in ('true', '1', 't', 'yes')
-    
-    # Cache expiration in days (default: 7 days)
-    CACHE_EXPIRATION_DAYS = int(os.getenv('CACHE_EXPIRATION_DAYS', 7))
+    BATCHLEADS_BASE_URL = os.getenv("BATCHLEADS_BASE_URL", "https://app.batchleads.io")
 
-    # Scraped data directory (default: scraped_data)
-    SCRAPED_DATA_DIR = os.getenv('SCRAPED_DATA_DIR', 'scraped_data')
-    
+    HEADLESS = os.getenv("HEADLESS", "true").lower() in ("true", "1", "t", "yes")
+
     @classmethod
     def validate(cls):
-        required_vars = ['BATCHLEADS_EMAIL', 'BATCHLEADS_PASSWORD']
+        required_vars = ["BATCHLEADS_EMAIL", "BATCHLEADS_PASSWORD"]
         missing_vars = [var for var in required_vars if not getattr(cls, var)]
-        
+
         if missing_vars:
-            raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
-        
+            raise ValueError(
+                f"Missing required environment variables: {', '.join(missing_vars)}"
+            )
+
         return True
