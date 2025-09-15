@@ -12,6 +12,9 @@ class Config:
 
     HEADLESS = os.getenv('HEADLESS', 'true').lower() in ('true', '1', 't', 'yes')
     
+    # Cache expiration in days (default: 7 days)
+    CACHE_EXPIRATION_DAYS = int(os.getenv('CACHE_EXPIRATION_DAYS', 7))
+    
     @classmethod
     def validate(cls):
         required_vars = ['BATCHLEADS_EMAIL', 'BATCHLEADS_PASSWORD']

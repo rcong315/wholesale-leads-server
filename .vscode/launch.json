@@ -9,6 +9,9 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "HEADLESS": "false"
+            },
             "args": [],
             "justMyCode": true,
             "stopOnEntry": false,
@@ -42,6 +45,38 @@
                 "HEADLESS": "false"
             },
             "args": [],
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Run Batch Scraper (Test)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/batch_scraper.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "args": ["--limit", "5", "--delay", "2"],
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Run Batch Scraper (Full)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/batch_scraper.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "args": ["--delay", "5"],
             "justMyCode": true,
             "stopOnEntry": false,
             "python": "${workspaceFolder}/venv/bin/python"
