@@ -2,56 +2,143 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug BatchLeads Scraper",
-            "type": "python",
+            "name": "FastAPI Server",
+            "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/batchleads_main.py",
+            "program": "${workspaceFolder}/main.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
-            "args": [],
-            "justMyCode": true,
-            "stopOnEntry": false,
-            "python": "${workspaceFolder}/venv/bin/python"
-        },
-        {
-            "name": "Debug Scraper (Headless Mode)",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/batchleads_main.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "envFile": "${workspaceFolder}/.env",
-            "args": [],
-            "justMyCode": true,
-            "stopOnEntry": false,
-            "python": "${workspaceFolder}/venv/bin/python",
             "env": {
-                "HEADLESS_MODE": "true"
-            }
-        },
-        {
-            "name": "Debug Auth Module Only",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/auth.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "envFile": "${workspaceFolder}/.env",
+                "HEADLESS": "false"
+            },
             "args": [],
             "justMyCode": true,
             "stopOnEntry": false,
             "python": "${workspaceFolder}/venv/bin/python"
         },
         {
-            "name": "Debug Scraper Module Only",
-            "type": "python",
+            "name": "Debug Scraper (Headless)",
+            "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/batchleads_scraper.py",
+            "module": "scraper.scraper",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "HEADLESS": "true"
+            },
             "args": [],
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Debug Scraper (Non-Headless)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "scraper.scraper",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "HEADLESS": "false"
+            },
+            "args": [],
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Run Batch Scraper (Test)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/batch_scraper.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "args": [
+                "--limit",
+                "2",
+                "--delay",
+                "2"
+            ],
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Run Batch Scraper (Full)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/batch_scraper.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "args": [
+                "--delay",
+                "5"
+            ],
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Debug Google Drive API",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "google_drive.api",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "args": [],
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Run All Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/",
+                "-v"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Run Current Test File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "${file}",
+                "-v"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
             "justMyCode": true,
             "stopOnEntry": false,
             "python": "${workspaceFolder}/venv/bin/python"

@@ -3,3 +3,7 @@ __pycache__/
 venv/
 .DS_Store
 *.log
+scraped_data/
+**/key.json
+**/token.json
+**/credentials.json
