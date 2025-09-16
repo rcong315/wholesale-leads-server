@@ -104,6 +104,44 @@
             "justMyCode": true,
             "stopOnEntry": false,
             "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Run All Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/",
+                "-v"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
+            "name": "Run Current Test File",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "${file}",
+                "-v"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "python": "${workspaceFolder}/venv/bin/python"
         }
     ]
 }
