@@ -230,6 +230,66 @@ class GoogleDriveAPI:
 
         return None
 
+    def append_to_cache(self, zip_code, leads_data, is_final=False):
+        """Append leads data to cache file, supporting incremental writes"""
+        try:
+            json_file_name = f"batchleads_data_{zip_code}.json"
+
+            # Load existing data if any
+            existing_content = self.download(zip_code)
+            existing_leads = []
+
+            if existing_content:
+                try:
+                    existing_cache = json.loads(existing_content)
+                    existing_leads = existing_cache.get("leads", [])
+                    logger.info(f"Found {len(existing_leads)} existing leads for {zip_code}")
+                except (json.JSONDecodeError, KeyError):
+                    logger.warning(f"Existing cache file corrupted for {zip_code}, starting fresh")
+                    existing_leads = []
+
+            # Combine existing and new leads
+            all_leads = existing_leads + leads_data
+
+            operation_type = "FINAL WRITE" if is_final else "INCREMENTAL WRITE"
+            logger.info(f"[{operation_type}] Appending {len(leads_data)} leads to existing {len(existing_leads)} leads for {zip_code}")
+            logger.info(f"Total leads after merge: {len(all_leads)}")
+
+            # Prepare cache data
+            cache_data = {
+                "timestamp": datetime.now().isoformat(),
+                "leads": all_leads,
+                "is_complete": is_final,  # Track if this is the final complete dataset
+                "total_leads": len(all_leads)
+            }
+
+            data_json = json.dumps(cache_data, indent=2)
+            json_result = self.upload(json_file_name, data_json, "json")
+
+            # Only save CSV for final complete datasets
+            csv_result = True
+            if is_final:
+                csv_file_name = f"batchleads_data_{zip_code}.csv"
+                data_csv = self.convert_leads_to_csv(all_leads)
+                if data_csv:
+                    csv_result = self.upload(csv_file_name, data_csv, "csv")
+                    if csv_result:
+                        logger.info(f"Successfully saved final CSV with {len(all_leads)} leads for {zip_code}")
+
+            if json_result:
+                status = "FINAL" if is_final else "PARTIAL"
+                logger.info(f"✓ [{status}] Successfully saved to Google Drive: {zip_code} ({len(all_leads)} total leads)")
+                if is_final and csv_result:
+                    logger.info(f"✓ CSV export completed for {zip_code}")
+                return True
+            else:
+                logger.error(f"✗ Failed to save JSON to Google Drive for {zip_code}")
+                return False
+
+        except Exception as error:
+            logger.error(f"✗ Exception during cache operation for {zip_code}: {error}")
+            return False
+
     def save_cache(self, zip_code, leads_data):
         try:
             # Save JSON format

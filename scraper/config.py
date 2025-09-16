@@ -13,8 +13,17 @@ class Config:
 
     HEADLESS = os.getenv("HEADLESS", "true").lower() in ("true", "1", "t", "yes")
 
+    # Periodic writing configuration
+    BATCH_SIZE = int(os.getenv("BATCH_SIZE", 250))  # Number of leads before writing
+    WRITE_THRESHOLD_MB = float(
+        os.getenv("WRITE_THRESHOLD_MB", 1.0)
+    )  # Memory threshold in MB
+
     @classmethod
     def validate(cls):
+        import logging
+        logger = logging.getLogger(__name__)
+
         required_vars = ["BATCHLEADS_EMAIL", "BATCHLEADS_PASSWORD"]
         missing_vars = [var for var in required_vars if not getattr(cls, var)]
 
@@ -22,5 +31,13 @@ class Config:
             raise ValueError(
                 f"Missing required environment variables: {', '.join(missing_vars)}"
             )
+
+        # Log configuration for visibility
+        logger.info("📋 SCRAPER CONFIGURATION:")
+        logger.info(f"   • Batch size: {cls.BATCH_SIZE} leads")
+        logger.info(f"   • Memory threshold: {cls.WRITE_THRESHOLD_MB} MB")
+        logger.info(f"   • Max pages: {cls.MAX_PAGES}")
+        logger.info(f"   • Headless mode: {cls.HEADLESS}")
+        logger.info(f"   • Base URL: {cls.BATCHLEADS_BASE_URL}")
 
         return True

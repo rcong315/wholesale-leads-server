@@ -85,9 +85,9 @@ class BatchScraper:
             )
 
             try:
-                await self.scraper.scrape_zip_code(zip_code)
+                total_leads = await self.scraper.scrape_zip_code(zip_code)
                 self.processed += 1
-                logger.info(f"Successfully processed ZIP code: {zip_code}")
+                logger.info(f"Successfully processed ZIP code: {zip_code} ({total_leads} leads)")
             except Exception as e:
                 self.failed += 1
                 logger.error(f"Failed to process ZIP code {zip_code}: {str(e)}")
