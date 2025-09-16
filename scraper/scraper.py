@@ -110,13 +110,13 @@ class BatchLeadsScraper:
                     parts = text.split(" of ")
                     if len(parts) == 2:
                         try:
-                            total_leads = int(parts[1].strip())
+                            total_leads = int(parts[1].strip().replace(",", ""))
                             # Extract current range
                             range_part = parts[0].strip()
                             if " - " in range_part:
                                 range_parts = range_part.split(" - ")
-                                start_lead = int(range_parts[0].strip())
-                                end_lead = int(range_parts[1].strip())
+                                start_lead = int(range_parts[0].strip().replace(",", ""))
+                                end_lead = int(range_parts[1].strip().replace(",", ""))
                                 return {
                                     "total_leads": total_leads,
                                     "current_start": start_lead,

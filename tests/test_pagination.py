@@ -7,8 +7,10 @@ import sys
 import os
 from bs4 import BeautifulSoup
 
-# Add the server directory to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'server'))
+# Add the parent directory to Python path to import scraper
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+from scraper.scraper import BatchLeadsScraper
 
 def test_pagination_extraction():
     """Test the pagination extraction logic with the provided HTML"""
@@ -32,47 +34,11 @@ def test_pagination_extraction():
     </div>
     '''
 
-    # Create a mock scraper class to test the method
-    class MockScraper:
-        def extract_pagination_info(self, soup):
-            """Extract total leads from the pagination HTML"""
-            try:
-                # Look for pagination text like " 351 - 374 of 374 "
-                pagination_spans = soup.find_all("span")
-                for span in pagination_spans:
-                    text = span.get_text().strip()
-                    # Pattern: "X - Y of Z" where Z is total leads
-                    if " of " in text and " - " in text:
-                        parts = text.split(" of ")
-                        if len(parts) == 2:
-                            try:
-                                total_leads = int(parts[1].strip())
-                                # Extract current range
-                                range_part = parts[0].strip()
-                                if " - " in range_part:
-                                    range_parts = range_part.split(" - ")
-                                    start_lead = int(range_parts[0].strip())
-                                    end_lead = int(range_parts[1].strip())
-                                    return {
-                                        "total_leads": total_leads,
-                                        "current_start": start_lead,
-                                        "current_end": end_lead
-                                    }
-                            except ValueError:
-                                continue
-
-                print("Could not extract pagination info from HTML")
-                return None
-
-            except Exception as e:
-                print(f"Error extracting pagination info: {e}")
-                return None
-
     print("Testing pagination info extraction...")
     print("HTML content:", html_content[:100] + "...")
 
     soup = BeautifulSoup(html_content, "html.parser")
-    scraper = MockScraper()
+    scraper = BatchLeadsScraper()
 
     result = scraper.extract_pagination_info(soup)
 
@@ -113,38 +79,15 @@ def test_edge_cases():
         '<span>26-50 of 100</span>',
         # Case 3: Large numbers
         '<span> 1975 - 2000 of 2000 </span>',
-        # Case 4: Invalid format
+        # Case 4: Numbers with commas
+        '<span> 1,001 - 1,025 of 5,234 </span>',
+        # Case 5: Large numbers with commas
+        '<span> 9,976 - 10,000 of 12,345 </span>',
+        # Case 6: Invalid format
         '<span> invalid format </span>',
     ]
 
-    class MockScraper:
-        def extract_pagination_info(self, soup):
-            try:
-                pagination_spans = soup.find_all("span")
-                for span in pagination_spans:
-                    text = span.get_text().strip()
-                    if " of " in text and " - " in text:
-                        parts = text.split(" of ")
-                        if len(parts) == 2:
-                            try:
-                                total_leads = int(parts[1].strip())
-                                range_part = parts[0].strip()
-                                if " - " in range_part:
-                                    range_parts = range_part.split(" - ")
-                                    start_lead = int(range_parts[0].strip())
-                                    end_lead = int(range_parts[1].strip())
-                                    return {
-                                        "total_leads": total_leads,
-                                        "current_start": start_lead,
-                                        "current_end": end_lead
-                                    }
-                            except ValueError:
-                                continue
-                return None
-            except Exception as e:
-                return None
-
-    scraper = MockScraper()
+    scraper = BatchLeadsScraper()
 
     for i, test_html in enumerate(test_cases, 1):
         soup = BeautifulSoup(test_html, "html.parser")
