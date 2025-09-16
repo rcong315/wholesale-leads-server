@@ -1,6 +1,7 @@
 import os.path
 import logging
 import json
+import csv
 from datetime import datetime
 
 from google.auth.transport.requests import Request
@@ -82,6 +83,31 @@ class GoogleDriveAPI:
             logger.error(f"Error getting existing zip codes: {error}")
             return set()
 
+    def file_exists(self, zip_code, file_type="json"):
+        try:
+            extension = "json" if file_type == "json" else "csv"
+            file_name = f"batchleads_data_{zip_code}.{extension}"
+            query = f"name = '{file_name}' and '{self.config.GOOGLE_DRIVE_DIR_ID}' in parents"
+
+            results = self.service.files().list(q=query, fields="files(id)").execute()
+            items = results.get("files", [])
+
+            return len(items) > 0
+        except Exception as error:
+            logger.error(f"Error checking if file exists: {error}")
+            return False
+
+    def convert_leads_to_csv(self, leads_data):
+        if not leads_data or len(leads_data) == 0:
+            return ""
+
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=leads_data[0].keys())
+        writer.writeheader()
+        writer.writerows(leads_data)
+
+        return output.getvalue()
+
     def download(self, zip_code):
         try:
             file_name = f"batchleads_data_{zip_code}.json"
@@ -116,7 +142,7 @@ class GoogleDriveAPI:
             logger.error(f"Error downloading {file_name}: {error}")
             return None
 
-    def upload(self, file_name, data):
+    def upload(self, file_name, data, file_type="json"):
         try:
             logger.info(f"Uploading file: {file_name}")
             file_metadata = {
@@ -124,8 +150,13 @@ class GoogleDriveAPI:
                 "parents": [self.config.GOOGLE_DRIVE_DIR_ID],
             }
 
+            if file_type == "json":
+                mimetype = "application/json"
+            else:
+                mimetype = "text/csv"
+
             media = MediaIoBaseUpload(
-                io.BytesIO(data.encode("utf-8")), mimetype="application/json"
+                io.BytesIO(data.encode("utf-8")), mimetype=mimetype
             )
 
             query = f"name = '{file_name}' and '{self.config.GOOGLE_DRIVE_DIR_ID}' in parents"
@@ -201,16 +232,28 @@ class GoogleDriveAPI:
 
     def save_cache(self, zip_code, leads_data):
         try:
-            file_name = f"batchleads_data_{zip_code}.json"
+            # Save JSON format
+            json_file_name = f"batchleads_data_{zip_code}.json"
             cache_data = {
                 "timestamp": datetime.now().isoformat(),
                 "leads": leads_data,
             }
             data_json = json.dumps(cache_data, indent=2)
 
-            result = self.upload(file_name, data_json)
-            if result:
-                logger.info(f"Successfully cached data for zip code {zip_code}")
+            json_result = self.upload(json_file_name, data_json, "json")
+
+            # Save CSV format
+            csv_file_name = f"batchleads_data_{zip_code}.csv"
+            data_csv = self.convert_leads_to_csv(leads_data)
+
+            csv_result = None
+            if data_csv:
+                csv_result = self.upload(csv_file_name, data_csv, "csv")
+
+            if json_result:
+                logger.info(f"Successfully cached JSON data for zip code {zip_code}")
+                if csv_result:
+                    logger.info(f"Successfully cached CSV data for zip code {zip_code}")
                 return True
             else:
                 logger.error(f"Failed to cache data for zip code {zip_code}")

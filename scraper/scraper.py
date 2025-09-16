@@ -1,8 +1,5 @@
-import time
 import logging
-import pandas as pd
 import asyncio
-from datetime import datetime
 from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 
@@ -188,93 +185,91 @@ class BatchLeadsScraper:
             logger.error(f"Scraper error: {e}")
             return []
 
-    def save_to_csv(self, filename="batchleads_data.csv"):
-        if not self.all_data:
-            logger.warning("No data to save")
-            return False
-
-        try:
-            df = pd.DataFrame(self.all_data)
-            df.to_csv(filename, index=False)
-            logger.info(f"Data saved to {filename}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to save data to CSV: {e}")
-            return False
-
-    async def close(self):
-        if self.browser:
-            await self.browser.close()
-
-
-def load_cache(zip_code):
-    try:
-        drive_api = GoogleDriveAPI()
-        return drive_api.load_cache(zip_code)
-    except Exception as error:
-        logger.error(
-            f"Failed to load cache from Google Drive for zip code {zip_code}: {error}"
-        )
-        return None
-
-
-async def scrape(zip_codes, headless=None, use_cache=True):
+async def scrape(zip_code, headless=None, use_cache=True, progress_callback=None):
     config = Config()
     drive_api = GoogleDriveAPI()
 
+    if progress_callback:
+        progress_callback("Initializing browser...")
+
     scraper = BatchLeadsScraper(config)
     await scraper.init_browser(headless=headless)
+
+    if progress_callback:
+        progress_callback("Logging in...")
+
     await scraper.login()
 
-    for zip_code in zip_codes:
+    try:
         cached_data = None
         if use_cache:
-            cached_data = load_cache(zip_code)
+            if progress_callback:
+                progress_callback("Checking cache...")
+            cached_data = drive_api.load_cache(zip_code)
+
         if cached_data:
             logger.info(f"Using cached data for zip code {zip_code}")
-            yield cached_data
-            continue
+            if progress_callback:
+                progress_callback("Found cached data")
+            return cached_data
 
-        # If no cache or cache loading failed, scrape fresh data
-        try:
-            leads = await scraper.scrape_zip_code(zip_code)
-            if len(leads) > 0:
-                # Save to Google Drive cache
-                if drive_api:
-                    drive_api.save_cache(zip_code, leads)
+        if progress_callback:
+            progress_callback(f"Scraping data for zip code {zip_code}...")
 
-                yield {
-                    "zip_code": zip_code,
-                    "total_leads": len(leads),
-                    "leads": leads,
-                    "cached": False,
-                    "cache_age_days": 0,
-                }
-            else:
-                yield {
-                    "zip_code": zip_code,
-                    "total_leads": 0,
-                    "leads": [],
-                    "cached": False,
-                    "cache_age_days": 0,
-                }
-        except Exception as e:
-            logger.error(f"Error in scrape: {e}")
-            yield {"error": str(e)}
+        leads = await scraper.scrape_zip_code(zip_code)
 
-    await scraper.close()
+        if len(leads) > 0:
+            if progress_callback:
+                progress_callback("Saving data to cache...")
+
+            if drive_api:
+                drive_api.save_cache(zip_code, leads)
+
+            result = {
+                "zip_code": zip_code,
+                "total_leads": len(leads),
+                "leads": leads,
+                "cached": False,
+                "cache_age_days": 0,
+            }
+
+            if progress_callback:
+                progress_callback("Scraping completed successfully")
+
+            return result
+        else:
+            result = {
+                "zip_code": zip_code,
+                "total_leads": 0,
+                "leads": [],
+                "cached": False,
+                "cache_age_days": 0,
+            }
+
+            if progress_callback:
+                progress_callback("No leads found for this zip code")
+
+            return result
+
+    except Exception as e:
+        logger.error(f"Error in scrape: {e}")
+        if progress_callback:
+            progress_callback(f"Error: {str(e)}")
+        return {"error": str(e)}
+    finally:
+        await scraper.close()
 
 
 if __name__ == "__main__":
-    zip_codes = ["94588", "94928", "90001"]
+    zip_code = "94588"
 
     async def main():
-        async for result in scrape(zip_codes, use_cache=False):
-            if "error" in result:
-                print(f"Error: {result['error']}")
-            else:
-                print(
-                    f"Zip {result['zip_code']}: Found {result.get('total_leads', 0)} leads (cached: {result.get('cached', False)})"
-                )
+        result = await scrape(zip_code, use_cache=False)
+        if "error" in result:
+            print(f"Error: {result['error']}")
+        else:
+            print(
+                f"Zip {result['zip_code']}: Found {result.get('total_leads', 0)} leads (cached: {result.get('cached', False)})"
+            )
 
     asyncio.run(main())
