@@ -164,40 +164,14 @@ class BatchLeadsScraper:
             flush_type = "FINAL" if is_final else "PARTIAL"
             logger.info(f"[{flush_type}] Starting flush of {leads_count} leads to drive (buffer: {buffer_size_mb:.2f}MB)")
 
-            # Use append for partial writes, save_cache for final write
-            if is_final:
-                # For final write, append remaining buffer and finalize
-                if hasattr(self.drive_api, 'append_to_cache'):
-                    success = await asyncio.get_event_loop().run_in_executor(
-                        None,
-                        self.drive_api.append_to_cache,
-                        self.current_zip_code,
-                        self.leads_buffer,
-                        True  # is_final
-                    )
-                else:
-                    # Fallback to traditional save_cache if append not available
-                    all_leads = self.leads_buffer
-                    success = await asyncio.get_event_loop().run_in_executor(
-                        None,
-                        self.drive_api.save_cache,
-                        self.current_zip_code,
-                        all_leads
-                    )
-            else:
-                # Partial write
-                if hasattr(self.drive_api, 'append_to_cache'):
-                    success = await asyncio.get_event_loop().run_in_executor(
-                        None,
-                        self.drive_api.append_to_cache,
-                        self.current_zip_code,
-                        self.leads_buffer,
-                        False  # is_final
-                    )
-                else:
-                    # If append not available, just accumulate until final
-                    logger.warning("append_to_cache not available, accumulating in memory")
-                    return
+            # Always use append_to_cache for both partial and final writes
+            success = await asyncio.get_event_loop().run_in_executor(
+                None,
+                self.drive_api.append_to_cache,
+                self.current_zip_code,
+                self.leads_buffer,
+                is_final
+            )
 
             flush_duration = time.time() - flush_start_time
             self.total_write_time += flush_duration
@@ -446,18 +420,18 @@ class BatchLeadsScraper:
         except Exception as e:
             # Enhanced error logging with context
             error_time = time.time() - self.scrape_start_time if self.scrape_start_time else 0
-            buffer_state = f"{len(self.leads_buffer)} leads, {self.get_buffer_size_mb():.2f}MB" if hasattr(self, 'leads_buffer') else "unknown"
+            buffer_state = f"{len(self.leads_buffer)} leads, {self.get_buffer_size_mb():.2f}MB"
 
             logger.error(f"=== SCRAPE ERROR for ZIP {zip_code} ===")
             logger.error(f"Error: {str(e)}")
             logger.error(f"Error occurred after: {error_time:.1f}s")
-            logger.error(f"Pages completed: {getattr(self, 'pages_scraped', 0)}")
-            logger.error(f"Leads written so far: {getattr(self, 'total_leads_written', 0)}")
+            logger.error(f"Pages completed: {self.pages_scraped}")
+            logger.error(f"Leads written so far: {self.total_leads_written}")
             logger.error(f"Buffer state: {buffer_state}")
-            logger.error(f"Write operations completed: {getattr(self, 'write_operations', 0)}")
+            logger.error(f"Write operations completed: {self.write_operations}")
             logger.error(f"=" * 40)
 
-            return getattr(self, 'total_leads_written', 0)
+            return self.total_leads_written
 
     async def close(self):
         try:
@@ -502,43 +476,29 @@ async def scrape(zip_code, headless=None, use_cache=True, progress_callback=None
 
         total_leads_count = await scraper.scrape_zip_code(zip_code, progress_callback)
 
-        # Data is now automatically written to drive during scraping
-        if total_leads_count > 0:
-            # Load the complete data from drive to return in the expected format
-            final_cached_data = drive_api.load_cache(zip_code)
-            if final_cached_data:
-                final_cached_data["cached"] = False  # This was freshly scraped
-                final_cached_data["cache_age_days"] = 0
-                if progress_callback:
-                    progress_callback("Scraping completed successfully")
-                return final_cached_data
-
-            # Fallback if load fails
-            result = {
+        # Data is automatically written to drive during scraping
+        # Load the complete data to maintain API compatibility
+        final_cached_data = drive_api.load_cache(zip_code)
+        if final_cached_data:
+            final_cached_data["cached"] = False  # This was freshly scraped
+            final_cached_data["cache_age_days"] = 0
+        else:
+            # Create minimal result if load fails
+            final_cached_data = {
                 "zip_code": zip_code,
                 "total_leads": total_leads_count,
-                "leads": [],  # Not available in memory anymore
-                "cached": False,
-                "cache_age_days": 0,
-            }
-
-            if progress_callback:
-                progress_callback("Scraping completed successfully")
-
-            return result
-        else:
-            result = {
-                "zip_code": zip_code,
-                "total_leads": 0,
                 "leads": [],
                 "cached": False,
                 "cache_age_days": 0,
             }
 
-            if progress_callback:
+        if progress_callback:
+            if total_leads_count > 0:
+                progress_callback("Scraping completed successfully")
+            else:
                 progress_callback("No leads found for this zip code")
 
-            return result
+        return final_cached_data
 
     except Exception as e:
         logger.error(f"Error in scrape: {e}")
@@ -549,16 +509,3 @@ async def scrape(zip_code, headless=None, use_cache=True, progress_callback=None
         await scraper.close()
 
 
-if __name__ == "__main__":
-    zip_code = "94588"
-
-    async def main():
-        result = await scrape(zip_code, use_cache=False)
-        if "error" in result:
-            print(f"Error: {result['error']}")
-        else:
-            print(
-                f"Zip {result['zip_code']}: Found {result.get('total_leads', 0)} leads (cached: {result.get('cached', False)})"
-            )
-
-    asyncio.run(main())

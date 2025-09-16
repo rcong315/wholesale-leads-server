@@ -46,7 +46,7 @@ class GoogleDriveAPI:
 
     def list_files(self):
         try:
-            query = f"'{self.config.GOOGLE_DRIVE_DIR_ID}' in parents"
+            query = f"'{self.config.GOOGLE_DRIVE_DIR_ID}' in parents and trashed = false"
 
             results = (
                 self.service.files()
@@ -87,7 +87,7 @@ class GoogleDriveAPI:
         try:
             extension = "json" if file_type == "json" else "csv"
             file_name = f"batchleads_data_{zip_code}.{extension}"
-            query = f"name = '{file_name}' and '{self.config.GOOGLE_DRIVE_DIR_ID}' in parents"
+            query = f"name = '{file_name}' and '{self.config.GOOGLE_DRIVE_DIR_ID}' in parents and trashed = false"
 
             results = self.service.files().list(q=query, fields="files(id)").execute()
             items = results.get("files", [])
@@ -112,7 +112,7 @@ class GoogleDriveAPI:
         try:
             file_name = f"batchleads_data_{zip_code}.json"
             logger.info(f"Downloading file: {file_name}")
-            query = f"name = '{file_name}' and '{self.config.GOOGLE_DRIVE_DIR_ID}' in parents"
+            query = f"name = '{file_name}' and '{self.config.GOOGLE_DRIVE_DIR_ID}' in parents and trashed = false"
 
             results = self.service.files().list(q=query, fields="files(id)").execute()
             items = results.get("files", [])
@@ -159,7 +159,7 @@ class GoogleDriveAPI:
                 io.BytesIO(data.encode("utf-8")), mimetype=mimetype
             )
 
-            query = f"name = '{file_name}' and '{self.config.GOOGLE_DRIVE_DIR_ID}' in parents"
+            query = f"name = '{file_name}' and '{self.config.GOOGLE_DRIVE_DIR_ID}' in parents and trashed = false"
             results = self.service.files().list(q=query, fields="files(id)").execute()
             items = results.get("files", [])
 
@@ -290,45 +290,5 @@ class GoogleDriveAPI:
             logger.error(f"✗ Exception during cache operation for {zip_code}: {error}")
             return False
 
-    def save_cache(self, zip_code, leads_data):
-        try:
-            # Save JSON format
-            json_file_name = f"batchleads_data_{zip_code}.json"
-            cache_data = {
-                "timestamp": datetime.now().isoformat(),
-                "leads": leads_data,
-            }
-            data_json = json.dumps(cache_data, indent=2)
-
-            json_result = self.upload(json_file_name, data_json, "json")
-
-            # Save CSV format
-            csv_file_name = f"batchleads_data_{zip_code}.csv"
-            data_csv = self.convert_leads_to_csv(leads_data)
-
-            csv_result = None
-            if data_csv:
-                csv_result = self.upload(csv_file_name, data_csv, "csv")
-
-            if json_result:
-                logger.info(f"Successfully cached JSON data for zip code {zip_code}")
-                if csv_result:
-                    logger.info(f"Successfully cached CSV data for zip code {zip_code}")
-                return True
-            else:
-                logger.error(f"Failed to cache data for zip code {zip_code}")
-                return False
-
-        except Exception as error:
-            logger.error(f"Error saving cache for zip code {zip_code}: {error}")
-            return False
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    api = GoogleDriveAPI()
-    result = api.download("90001")
-    if result:
-        logger.info(f"Downloaded content length: {len(result)}")
-    else:
-        logger.info("No content downloaded")
