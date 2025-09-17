@@ -2,6 +2,8 @@ import os.path
 import logging
 import json
 import csv
+import time
+import ssl
 from datetime import datetime
 
 from google.auth.transport.requests import Request
@@ -46,7 +48,9 @@ class GoogleDriveAPI:
 
     def list_files(self):
         try:
-            query = f"'{self.config.GOOGLE_DRIVE_DIR_ID}' in parents and trashed = false"
+            query = (
+                f"'{self.config.GOOGLE_DRIVE_DIR_ID}' in parents and trashed = false"
+            )
 
             results = (
                 self.service.files()
@@ -231,7 +235,6 @@ class GoogleDriveAPI:
         return None
 
     def append_to_cache(self, zip_code, leads_data, is_final=False):
-        """Append leads data to cache file, supporting incremental writes"""
         try:
             json_file_name = f"batchleads_data_{zip_code}.json"
 
@@ -243,16 +246,22 @@ class GoogleDriveAPI:
                 try:
                     existing_cache = json.loads(existing_content)
                     existing_leads = existing_cache.get("leads", [])
-                    logger.info(f"Found {len(existing_leads)} existing leads for {zip_code}")
+                    logger.info(
+                        f"Found {len(existing_leads)} existing leads for {zip_code}"
+                    )
                 except (json.JSONDecodeError, KeyError):
-                    logger.warning(f"Existing cache file corrupted for {zip_code}, starting fresh")
+                    logger.warning(
+                        f"Existing cache file corrupted for {zip_code}, starting fresh"
+                    )
                     existing_leads = []
 
             # Combine existing and new leads
             all_leads = existing_leads + leads_data
 
             operation_type = "FINAL WRITE" if is_final else "INCREMENTAL WRITE"
-            logger.info(f"[{operation_type}] Appending {len(leads_data)} leads to existing {len(existing_leads)} leads for {zip_code}")
+            logger.info(
+                f"[{operation_type}] Appending {len(leads_data)} leads to existing {len(existing_leads)} leads for {zip_code}"
+            )
             logger.info(f"Total leads after merge: {len(all_leads)}")
 
             # Prepare cache data
@@ -260,7 +269,7 @@ class GoogleDriveAPI:
                 "timestamp": datetime.now().isoformat(),
                 "leads": all_leads,
                 "is_complete": is_final,  # Track if this is the final complete dataset
-                "total_leads": len(all_leads)
+                "total_leads": len(all_leads),
             }
 
             data_json = json.dumps(cache_data, indent=2)
@@ -274,11 +283,15 @@ class GoogleDriveAPI:
                 if data_csv:
                     csv_result = self.upload(csv_file_name, data_csv, "csv")
                     if csv_result:
-                        logger.info(f"Successfully saved final CSV with {len(all_leads)} leads for {zip_code}")
+                        logger.info(
+                            f"Successfully saved final CSV with {len(all_leads)} leads for {zip_code}"
+                        )
 
             if json_result:
                 status = "FINAL" if is_final else "PARTIAL"
-                logger.info(f"✓ [{status}] Successfully saved to Google Drive: {zip_code} ({len(all_leads)} total leads)")
+                logger.info(
+                    f"✓ [{status}] Successfully saved to Google Drive: {zip_code} ({len(all_leads)} total leads)"
+                )
                 if is_final and csv_result:
                     logger.info(f"✓ CSV export completed for {zip_code}")
                 return True
@@ -289,6 +302,3 @@ class GoogleDriveAPI:
         except Exception as error:
             logger.error(f"✗ Exception during cache operation for {zip_code}: {error}")
             return False
-
-
-

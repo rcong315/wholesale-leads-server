@@ -7,21 +7,22 @@ load_dotenv()
 class Config:
     BATCHLEADS_EMAIL = os.getenv("BATCHLEADS_EMAIL")
     BATCHLEADS_PASSWORD = os.getenv("BATCHLEADS_PASSWORD")
-    MAX_PAGES = int(os.getenv("MAX_PAGES", 99))
+    MAX_PAGES = int(os.getenv("MAX_PAGES", 999))
 
     BATCHLEADS_BASE_URL = os.getenv("BATCHLEADS_BASE_URL", "https://app.batchleads.io")
 
     HEADLESS = os.getenv("HEADLESS", "true").lower() in ("true", "1", "t", "yes")
 
     # Periodic writing configuration
-    BATCH_SIZE = int(os.getenv("BATCH_SIZE", 250))  # Number of leads before writing
+    BATCH_SIZE = int(os.getenv("BATCH_SIZE", 500))  # Number of leads before writing
     WRITE_THRESHOLD_MB = float(
-        os.getenv("WRITE_THRESHOLD_MB", 1.0)
+        os.getenv("WRITE_THRESHOLD_MB", 2.0)
     )  # Memory threshold in MB
 
     @classmethod
     def validate(cls):
         import logging
+
         logger = logging.getLogger(__name__)
 
         required_vars = ["BATCHLEADS_EMAIL", "BATCHLEADS_PASSWORD"]

@@ -190,11 +190,13 @@ class BatchLeadsScraper:
 
                 self.leads_buffer = []  # Clear buffer after successful write
             else:
-                logger.error(f"[{flush_type}] ✗ Flush failed after {flush_duration:.2f}s")
+                logger.error(f"[{flush_type}] ✗ Flush failed after {flush_duration:.2f}s - keeping buffer for retry")
+                # Don't clear buffer on failure - keep leads for potential retry
 
         except Exception as e:
             flush_duration = time.time() - flush_start_time
-            logger.error(f"[{flush_type}] ✗ Flush error after {flush_duration:.2f}s: {e}")
+            logger.error(f"[{flush_type}] ✗ Flush error after {flush_duration:.2f}s: {e} - keeping buffer for retry")
+            # Don't clear buffer on exception - keep leads for potential retry
 
     async def scrape_leads_table(self, page, page_num=1):
         try:
