@@ -1,7 +1,9 @@
-from fastapi import FastAPI, Query, BackgroundTasks
+from fastapi import FastAPI, Query, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from scraper.scraper import scrape
 from google_drive.api import GoogleDriveAPI
+from street_view.api import StreetViewAPI
 import logging
 
 logger = logging.getLogger(__name__)
@@ -132,3 +134,69 @@ async def background_scrape(zip_code: str, headless=None, use_cache=True):
             "message": str(e),
             "progress": 0,
         }
+
+
+@app.get("/street-view/image")
+async def get_street_view_image_bytes(
+    address: str = Query(..., description="Street address of the house"),
+    size: str = Query("640x640", description="Image size (e.g., '640x640')"),
+    heading: int = Query(
+        None, description="Camera heading in degrees (0-360, optional)"
+    ),
+    pitch: int = Query(0, description="Camera pitch in degrees (-90 to 90)"),
+    fov: int = Query(90, description="Field of view in degrees (10-120)"),
+):
+    try:
+        street_view_api = StreetViewAPI()
+
+        # First geocode the address to get coordinates
+        coords = street_view_api.geocode_address(address.strip())
+        if not coords:
+            raise HTTPException(
+                status_code=404, detail=f"Could not geocode address: {address}"
+            )
+
+        lat, lng = coords["lat"], coords["lng"]
+
+        # Get the image data
+        image_data = street_view_api.get_street_view_image_data(
+            lat=lat,
+            lng=lng,
+            size=size,
+            heading=heading,
+            pitch=pitch,
+            fov=fov,
+            return_base64=False,
+        )
+
+        if not image_data:
+            raise HTTPException(
+                status_code=404,
+                detail="Could not fetch Street View image for the given address",
+            )
+
+        # Return raw image bytes with metadata in headers
+        headers = {
+            "X-Address": address.strip(),
+            "X-Coordinates": f"{lat},{lng}",
+            "X-Image-Size": size,
+            "X-Pitch": str(pitch),
+            "X-FOV": str(fov),
+            "Content-Disposition": f'inline; filename="streetview_{address.replace(" ", "_").replace(",", "")}.jpg"',
+        }
+
+        if heading is not None:
+            headers["X-Heading"] = str(heading)
+
+        return Response(content=image_data, media_type="image/jpeg", headers=headers)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Error getting street view image bytes for address '{address}': {e}"
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error while fetching street view image",
+        )
