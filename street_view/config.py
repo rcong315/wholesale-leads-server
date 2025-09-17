@@ -12,7 +12,7 @@ class Config:
     DEFAULT_IMAGE_SIZE = "640x640"
 
     # Default field of view (10-120 degrees)
-    DEFAULT_FOV = 90
+    DEFAULT_FOV = 120
 
     # Default pitch (-90 to 90 degrees)
     DEFAULT_PITCH = 0
