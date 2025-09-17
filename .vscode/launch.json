@@ -106,6 +106,22 @@
             "python": "${workspaceFolder}/venv/bin/python"
         },
         {
+            "name": "Debug Street View API",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/street_view/api.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "envFile": "${workspaceFolder}/.env",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "args": [],
+            "justMyCode": true,
+            "stopOnEntry": false,
+            "python": "${workspaceFolder}/venv/bin/python"
+        },
+        {
             "name": "Run All Tests",
             "type": "debugpy",
             "request": "launch",
