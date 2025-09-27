@@ -83,7 +83,7 @@ def test_api_structure():
 
         # Check that key routes exist
         routes = [route.path for route in app.routes]
-        expected_routes = ["/status/{zip_code}", "/progress/{zip_code}", "/scrape/{zip_code}"]
+        expected_routes = ["/status/{location}", "/progress/{location}", "/scrape/{location}"]
 
         for expected_route in expected_routes:
             if any(expected_route in route for route in routes):

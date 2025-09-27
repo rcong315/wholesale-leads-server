@@ -123,17 +123,17 @@ class BatchScraper:
         logger.info("=" * 50)
         logger.info("BATCH SCRAPING COMPLETED")
         logger.info("=" * 50)
-        logger.info(f"Total ZIP codes processed: {total_zips}")
+        logger.info(f"Total locations processed: {total_locations}")
         logger.info(f"Fresh scrapes: {self.processed}")
         logger.info(f"Cached results: {self.skipped}")
         logger.info(f"Failed: {self.failed}")
         logger.info(
-            f"Success rate: {((self.processed + self.skipped) / total_zips) * 100:.1f}%"
+            f"Success rate: {((self.processed + self.skipped) / total_locations) * 100:.1f}%"
         )
         logger.info(
             f"Total time: {elapsed_time/60:.1f} minutes ({elapsed_time/3600:.1f} hours)"
         )
-        logger.info(f"Average time per ZIP: {elapsed_time/total_zips:.2f} seconds")
+        logger.info(f"Average time per location: {elapsed_time/total_locations:.2f} seconds")
         logger.info("=" * 50)
 
 
@@ -141,10 +141,10 @@ async def main():
     """Main function with command line options"""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Batch scrape California ZIP codes")
+    parser = argparse.ArgumentParser(description="Batch scrape California locations")
     parser.add_argument("--start", type=int, default=0, help="Start index (default: 0)")
     parser.add_argument(
-        "--limit", type=int, help="Limit number of ZIP codes to process"
+        "--limit", type=int, help="Limit number of locations to process"
     )
     parser.add_argument(
         "--delay",
@@ -153,12 +153,12 @@ async def main():
         help="Delay between requests in seconds (default: 5)",
     )
     parser.add_argument(
-        "--retries", type=int, default=3, help="Max retries per ZIP code (default: 3)"
+        "--retries", type=int, default=3, help="Max retries per location (default: 3)"
     )
     parser.add_argument(
         "--no-skip-existing",
         action="store_true",
-        help="Process all ZIP codes, even if already cached",
+        help="Process all locations, even if already cached",
     )
 
     args = parser.parse_args()
@@ -179,7 +179,7 @@ async def main():
         await scraper.scrape_all_california(start_index=args.start, limit=args.limit)
     except KeyboardInterrupt:
         logger.info("Batch scraping interrupted by user")
-        scraper.print_final_summary(args.limit or len(get_zip_codes()))
+        scraper.print_final_summary(args.limit or len(get_locations()))
     except Exception as e:
         logger.error(f"Batch scraping failed with error: {str(e)}")
         raise

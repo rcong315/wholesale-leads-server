@@ -170,7 +170,7 @@ class BatchLeadsScraper:
             logger.error(f"Scraping error: {e}")
             return [], None
 
-    async def scrape_zip_code(self, zip_code, progress_callback=None):
+    async def scrape_location(self, location, progress_callback=None):
         try:
             all_leads = []
             page_num = 1
@@ -188,13 +188,13 @@ class BatchLeadsScraper:
             await page.wait_for_timeout(3000)
 
             if progress_callback:
-                progress_callback(f"Searching for zip code {zip_code}...")
+                progress_callback(f"Searching for location {location}...")
 
             try:
-                zip_input = await page.query_selector('input[id="placeInput"]')
-                if zip_input:
-                    await zip_input.fill(str(zip_code))
-                    await zip_input.press("Enter")
+                location_input = await page.query_selector('input[id="placeInput"]')
+                if location_input:
+                    await location_input.fill(str(location))
+                    await location_input.press("Enter")
                     await page.wait_for_timeout(3000)
             except Exception:
                 pass
@@ -263,7 +263,7 @@ class BatchLeadsScraper:
             logger.error(f"Error closing browser: {e}")
 
 
-async def scrape(zip_code, headless=None, use_cache=True, progress_callback=None):
+async def scrape(location, headless=None, use_cache=True, progress_callback=None):
     config = Config()
     drive_api = GoogleDriveAPI()
 
@@ -283,28 +283,28 @@ async def scrape(zip_code, headless=None, use_cache=True, progress_callback=None
         if use_cache:
             if progress_callback:
                 progress_callback("Checking cache...")
-            cached_data = drive_api.load_cache(zip_code)
+            cached_data = drive_api.load_cache(location)
 
         if cached_data:
-            logger.info(f"Using cached data for zip code {zip_code}")
+            logger.info(f"Using cached data for location {location}")
             if progress_callback:
                 progress_callback("Found cached data")
             return cached_data
 
         if progress_callback:
-            progress_callback(f"Scraping data for zip code {zip_code}...")
+            progress_callback(f"Scraping data for location {location}...")
 
-        leads = await scraper.scrape_zip_code(zip_code, progress_callback)
+        leads = await scraper.scrape_location(location, progress_callback)
 
         if len(leads) > 0:
             if progress_callback:
                 progress_callback("Saving data to cache...")
 
             if drive_api:
-                drive_api.save_cache(zip_code, leads)
+                drive_api.save_cache(location, leads)
 
             result = {
-                "zip_code": zip_code,
+                "location": location,
                 "total_leads": len(leads),
                 "leads": leads,
                 "cached": False,
@@ -317,7 +317,7 @@ async def scrape(zip_code, headless=None, use_cache=True, progress_callback=None
             return result
         else:
             result = {
-                "zip_code": zip_code,
+                "location": location,
                 "total_leads": 0,
                 "leads": [],
                 "cached": False,
@@ -325,7 +325,7 @@ async def scrape(zip_code, headless=None, use_cache=True, progress_callback=None
             }
 
             if progress_callback:
-                progress_callback("No leads found for this zip code")
+                progress_callback("No leads found for this location")
 
             return result
 
@@ -339,15 +339,15 @@ async def scrape(zip_code, headless=None, use_cache=True, progress_callback=None
 
 
 if __name__ == "__main__":
-    zip_code = "94588"
+    location = "94588"
 
     async def main():
-        result = await scrape(zip_code, use_cache=False)
+        result = await scrape(location, use_cache=False)
         if "error" in result:
             print(f"Error: {result['error']}")
         else:
             print(
-                f"Zip {result['zip_code']}: Found {result.get('total_leads', 0)} leads (cached: {result.get('cached', False)})"
+                f"Location {result['location']}: Found {result.get('total_leads', 0)} leads (cached: {result.get('cached', False)})"
             )
 
     asyncio.run(main())

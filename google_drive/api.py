@@ -65,28 +65,28 @@ class GoogleDriveAPI:
             logger.error(f"Error listing files: {error}")
             return []
 
-    def get_existing_zip_codes(self):
+    def get_existing_locations(self):
         try:
             files = self.list_files()
-            zip_codes = set()
+            locations = set()
 
             for file in files:
                 name = file["name"]
-                # Extract zip code from filename pattern: batchleads_data_{zip_code}.json
+                # Extract location from filename pattern: batchleads_data_{location}.json
                 if name.startswith("batchleads_data_") and name.endswith(".json"):
-                    zip_code = name.replace("batchleads_data_", "").replace(".json", "")
-                    zip_codes.add(zip_code)
+                    location = name.replace("batchleads_data_", "").replace(".json", "")
+                    locations.add(location)
 
-            logger.info(f"Found {len(zip_codes)} existing zip codes in cache")
-            return zip_codes
+            logger.info(f"Found {len(locations)} existing locations in cache")
+            return locations
         except Exception as error:
-            logger.error(f"Error getting existing zip codes: {error}")
+            logger.error(f"Error getting existing locations: {error}")
             return set()
 
-    def file_exists(self, zip_code, file_type="json"):
+    def file_exists(self, location, file_type="json"):
         try:
             extension = "json" if file_type == "json" else "csv"
-            file_name = f"batchleads_data_{zip_code}.{extension}"
+            file_name = f"batchleads_data_{location}.{extension}"
             query = f"name = '{file_name}' and '{self.config.GOOGLE_DRIVE_DIR_ID}' in parents"
 
             results = self.service.files().list(q=query, fields="files(id)").execute()
@@ -108,9 +108,9 @@ class GoogleDriveAPI:
 
         return output.getvalue()
 
-    def download(self, zip_code):
+    def download(self, location):
         try:
-            file_name = f"batchleads_data_{zip_code}.json"
+            file_name = f"batchleads_data_{location}.json"
             logger.info(f"Downloading file: {file_name}")
             query = f"name = '{file_name}' and '{self.config.GOOGLE_DRIVE_DIR_ID}' in parents"
 
@@ -195,9 +195,9 @@ class GoogleDriveAPI:
             logger.error(f"Error uploading {file_name}: {error}")
             return None
 
-    def load_cache(self, zip_code):
+    def load_cache(self, location):
         try:
-            content = self.download(zip_code)
+            content = self.download(location)
             if not content:
                 return None
 
@@ -209,10 +209,10 @@ class GoogleDriveAPI:
                 cache_age_days = (datetime.now() - cache_timestamp).days
                 if cache_age_days < self.config.CACHE_EXPIRATION_DAYS:
                     logger.info(
-                        f"Returning cached data for zip code {zip_code} (age: {cache_age_days} days)"
+                        f"Returning cached data for location {location} (age: {cache_age_days} days)"
                     )
                     return {
-                        "zip_code": zip_code,
+                        "location": location,
                         "total_leads": len(cached_data),
                         "leads": cached_data,
                         "cached": True,
@@ -220,20 +220,20 @@ class GoogleDriveAPI:
                     }
                 else:
                     logger.info(
-                        f"Cache expired for zip code {zip_code} (age: {cache_age_days} days)"
+                        f"Cache expired for location {location} (age: {cache_age_days} days)"
                     )
 
         except (json.JSONDecodeError, KeyError, TypeError, ValueError) as error:
-            logger.warning(f"Malformed cache file for zip code {zip_code}: {error}")
+            logger.warning(f"Malformed cache file for location {location}: {error}")
         except Exception as error:
-            logger.error(f"Error loading cache for zip code {zip_code}: {error}")
+            logger.error(f"Error loading cache for location {location}: {error}")
 
         return None
 
-    def save_cache(self, zip_code, leads_data):
+    def save_cache(self, location, leads_data):
         try:
             # Save JSON format
-            json_file_name = f"batchleads_data_{zip_code}.json"
+            json_file_name = f"batchleads_data_{location}.json"
             cache_data = {
                 "timestamp": datetime.now().isoformat(),
                 "leads": leads_data,
@@ -243,7 +243,7 @@ class GoogleDriveAPI:
             json_result = self.upload(json_file_name, data_json, "json")
 
             # Save CSV format
-            csv_file_name = f"batchleads_data_{zip_code}.csv"
+            csv_file_name = f"batchleads_data_{location}.csv"
             data_csv = self.convert_leads_to_csv(leads_data)
 
             csv_result = None
@@ -251,16 +251,16 @@ class GoogleDriveAPI:
                 csv_result = self.upload(csv_file_name, data_csv, "csv")
 
             if json_result:
-                logger.info(f"Successfully cached JSON data for zip code {zip_code}")
+                logger.info(f"Successfully cached JSON data for location {location}")
                 if csv_result:
-                    logger.info(f"Successfully cached CSV data for zip code {zip_code}")
+                    logger.info(f"Successfully cached CSV data for location {location}")
                 return True
             else:
-                logger.error(f"Failed to cache data for zip code {zip_code}")
+                logger.error(f"Failed to cache data for location {location}")
                 return False
 
         except Exception as error:
-            logger.error(f"Error saving cache for zip code {zip_code}: {error}")
+            logger.error(f"Error saving cache for location {location}: {error}")
             return False
 
 
