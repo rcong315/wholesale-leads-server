@@ -97,6 +97,9 @@ class Database:
                 # Create indexes for common queries
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_location ON leads(location)")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_scraped_at ON leads(scraped_at)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_location ON leads(city)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_location ON leads(zip)")
+                
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_property_address ON leads(property_address)")
 
                 conn.commit()
