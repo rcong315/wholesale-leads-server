@@ -2,7 +2,7 @@ from fastapi import FastAPI, Query, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from scraper.scraper import scrape
-from google_drive.api import GoogleDriveAPI
+from database import Database
 from street_view.api import StreetViewAPI
 import logging
 
@@ -24,11 +24,10 @@ scraping_status = {}
 
 @app.get("/status/{location}")
 async def check_location_status(location: str):
-    drive_api = GoogleDriveAPI()
+    db = Database()
 
-    # Check if file exists in cache
-    json_exists = drive_api.file_exists(location, "json")
-    csv_exists = drive_api.file_exists(location, "csv")
+    # Check if location exists in database
+    cached = db.location_exists(location)
 
     # Check if currently being scraped
     is_scraping = (
@@ -38,8 +37,7 @@ async def check_location_status(location: str):
 
     return {
         "location": location,
-        "cached": json_exists,
-        "csv_available": csv_exists,
+        "cached": cached,
         "is_scraping": is_scraping,
         "scraping_progress": (
             scraping_status.get(location, {}).get("message", "") if is_scraping else ""
@@ -77,8 +75,8 @@ async def scrape_leads(
 
     # Check cache first
     if use_cache:
-        drive_api = GoogleDriveAPI()
-        cached_data = drive_api.load_cache(location)
+        db = Database()
+        cached_data = db.get_leads(location)
         if cached_data:
             return cached_data
 
@@ -200,3 +198,35 @@ async def get_street_view_image_bytes(
             status_code=500,
             detail="Internal server error while fetching street view image",
         )
+
+
+@app.get("/leads/{location}")
+async def get_leads_for_location(location: str):
+    """Get all leads for a specific location"""
+    db = Database()
+    leads_data = db.get_leads(location)
+
+    if not leads_data:
+        raise HTTPException(status_code=404, detail=f"No leads found for location {location}")
+
+    return leads_data
+
+
+@app.get("/locations")
+async def get_all_locations():
+    """Get all cached locations"""
+    db = Database()
+    locations = db.get_locations()
+    return {"locations": locations, "count": len(locations)}
+
+
+@app.delete("/leads/{location}")
+async def delete_leads_for_location(location: str):
+    """Delete all leads for a specific location"""
+    db = Database()
+    success = db.delete_location(location)
+
+    if not success:
+        raise HTTPException(status_code=404, detail=f"No leads found for location {location}")
+
+    return {"message": f"Successfully deleted leads for location {location}"}

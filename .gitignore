@@ -7,3 +7,4 @@ scraped_data/
 **/key.json
 **/token.json
 **/credentials.json
+*.csv

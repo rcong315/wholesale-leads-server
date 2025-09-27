@@ -4,7 +4,7 @@ from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 
 from scraper.config import Config
-from google_drive.api import GoogleDriveAPI
+from database import Database
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +265,7 @@ class BatchLeadsScraper:
 
 async def scrape(location, headless=None, use_cache=True, progress_callback=None):
     config = Config()
-    drive_api = GoogleDriveAPI()
+    db = Database()
 
     if progress_callback:
         progress_callback("Initializing browser...")
@@ -283,7 +283,7 @@ async def scrape(location, headless=None, use_cache=True, progress_callback=None
         if use_cache:
             if progress_callback:
                 progress_callback("Checking cache...")
-            cached_data = drive_api.load_cache(location)
+            cached_data = db.get_leads(location)
 
         if cached_data:
             logger.info(f"Using cached data for location {location}")
@@ -298,10 +298,9 @@ async def scrape(location, headless=None, use_cache=True, progress_callback=None
 
         if len(leads) > 0:
             if progress_callback:
-                progress_callback("Saving data to cache...")
+                progress_callback("Saving data to database...")
 
-            if drive_api:
-                drive_api.save_cache(location, leads)
+            db.save_leads(location, leads)
 
             result = {
                 "location": location,
