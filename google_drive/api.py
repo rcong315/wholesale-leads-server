@@ -10,6 +10,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
+from google.auth.exceptions import RefreshError
 import io
 
 from google_drive.config import Config
@@ -34,7 +35,17 @@ class GoogleDriveAPI:
         # If there are no (valid) credentials available, let the user log in.
         if not self.creds or not self.creds.valid:
             if self.creds and self.creds.expired and self.creds.refresh_token:
-                self.creds.refresh(Request())
+                try:
+                    self.creds.refresh(Request())
+                except RefreshError as e:
+                    logger.warning(f"Token refresh failed: {e}. Re-authenticating...")
+                    # Remove the invalid token file and re-authenticate
+                    if os.path.exists("token.json"):
+                        os.remove("token.json")
+                    flow = InstalledAppFlow.from_client_secrets_file(
+                        "credentials.json", SCOPES
+                    )
+                    self.creds = flow.run_local_server(port=8888)
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
                     "credentials.json", SCOPES
