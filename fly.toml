@@ -23,5 +23,5 @@ primary_region = 'ord'
   memory_mb = 256
 
 [mounts]
-source = "db"
+source = "vol_r1lyngyn53gmomz4"
 destination = "/app/data" 
