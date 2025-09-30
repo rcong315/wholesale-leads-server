@@ -15,10 +15,10 @@ def test_imports():
     print("Testing imports...")
 
     try:
-        # Test Google Drive API module
-        print("  - Testing Google Drive API import...")
-        from google_drive.api import GoogleDriveAPI
-        print("    ✓ GoogleDriveAPI imported successfully")
+        # Test Database module
+        print("  - Testing Database import...")
+        from database import Database
+        print("    ✓ Database imported successfully")
 
         # Test API routes
         print("  - Testing API routes import...")
@@ -45,33 +45,53 @@ def test_imports():
         print(f"✗ Unexpected error: {e}")
         return False
 
-def test_google_drive_utilities():
-    """Test Google Drive utility functions that don't require authentication"""
-    print("\nTesting Google Drive utilities...")
+def test_database_utilities():
+    """Test Database utility functions"""
+    print("\nTesting Database utilities...")
 
     try:
-        from google_drive.api import GoogleDriveAPI
+        from database import Database
+        import tempfile
+        import os
 
-        # Test CSV conversion function
-        test_data = [
-            {"name": "John Doe", "address": "123 Main St", "city": "Anytown"},
-            {"name": "Jane Smith", "address": "456 Oak Ave", "city": "Somewhere"}
-        ]
+        # Create a temporary database for testing
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.db') as tmp_file:
+            tmp_db_path = tmp_file.name
 
-        # Create a mock GoogleDriveAPI instance (won't authenticate)
-        # We'll just test the CSV conversion method
-        api = GoogleDriveAPI.__new__(GoogleDriveAPI)  # Create without calling __init__
-        csv_content = api.convert_leads_to_csv(test_data)
+        try:
+            # Test database initialization
+            db = Database(tmp_db_path)
+            print("  ✓ Database initialization working correctly")
 
-        if csv_content and "John Doe" in csv_content and "123 Main St" in csv_content:
-            print("  ✓ CSV conversion working correctly")
-            return True
-        else:
-            print("  ✗ CSV conversion failed")
-            return False
+            # Test saving and retrieving leads
+            test_data = [
+                {"Property Address": "123 Main St", "City": "Anytown", "Owner First Name": "John", "Owner Last Name": "Doe"},
+                {"Property Address": "456 Oak Ave", "City": "Somewhere", "Owner First Name": "Jane", "Owner Last Name": "Smith"}
+            ]
+
+            saved_count = db.save_leads("test_location", test_data)
+            if saved_count == 2:
+                print("  ✓ Lead saving working correctly")
+            else:
+                print("  ✗ Lead saving failed")
+                return False
+
+            # Test retrieving leads
+            leads_data = db.get_leads("test_location")
+            if leads_data and leads_data["total_leads"] == 2:
+                print("  ✓ Lead retrieval working correctly")
+                return True
+            else:
+                print("  ✗ Lead retrieval failed")
+                return False
+
+        finally:
+            # Clean up temporary database
+            if os.path.exists(tmp_db_path):
+                os.unlink(tmp_db_path)
 
     except Exception as e:
-        print(f"  ✗ Google Drive utilities test failed: {e}")
+        print(f"  ✗ Database utilities test failed: {e}")
         return False
 
 def test_api_structure():
@@ -108,7 +128,7 @@ def main():
 
     # Run tests
     all_tests_passed &= test_imports()
-    all_tests_passed &= test_google_drive_utilities()
+    all_tests_passed &= test_database_utilities()
     all_tests_passed &= test_api_structure()
 
     print("\n" + "=" * 50)
@@ -116,10 +136,9 @@ def main():
         print("✓ All tests passed! Basic workflow structure is correct.")
         print("\nNext steps:")
         print("1. Install dependencies: pip install -r server/requirements.txt")
-        print("2. Set up Google Drive credentials")
-        print("3. Configure environment variables")
-        print("4. Start the FastAPI server: uvicorn main:app --reload")
-        print("5. Start the React frontend: npm start")
+        print("2. Configure environment variables")
+        print("3. Start the FastAPI server: uvicorn main:app --reload")
+        print("4. Start the React frontend: npm start")
     else:
         print("✗ Some tests failed. Please check the errors above.")
 

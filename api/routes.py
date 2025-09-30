@@ -1,9 +1,10 @@
-from fastapi import FastAPI, Query, BackgroundTasks, HTTPException
+from fastapi import FastAPI, Query, BackgroundTasks, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from scraper.scraper import scrape
 from database import Database
 from street_view.api import StreetViewAPI
+from typing import Optional, Dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Image-Date", "X-Address", "X-Coordinates", "X-Image-Size", "X-Pitch", "X-FOV", "X-Heading"],
 )
 
 # Global dict to track scraping progress
@@ -156,6 +158,9 @@ async def get_street_view_image_bytes(
 
         lat, lng = coords["lat"], coords["lng"]
 
+        # Get metadata including image date
+        metadata = street_view_api.get_street_view_metadata(lat, lng, heading)
+
         # Get the image data
         image_data = street_view_api.get_street_view_image_data(
             lat=lat,
@@ -185,6 +190,9 @@ async def get_street_view_image_bytes(
 
         if heading is not None:
             headers["X-Heading"] = str(heading)
+
+        if metadata and metadata.get("date"):
+            headers["X-Image-Date"] = metadata["date"]
 
         return Response(content=image_data, media_type="image/jpeg", headers=headers)
 
@@ -230,3 +238,28 @@ async def delete_leads_for_location(location: str):
         raise HTTPException(status_code=404, detail=f"No leads found for location {location}")
 
     return {"message": f"Successfully deleted leads for location {location}"}
+
+
+@app.get("/leads")
+async def get_leads(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    sort_by: str = Query("id"),
+    sort_order: str = Query("asc"),
+    filters: Optional[Dict] = Body(None)
+):
+    """Get paginated leads with optional filters and sorting"""
+    db = Database()
+
+    try:
+        result = db.get_leads_paginated(
+            offset=offset,
+            limit=limit,
+            filters=filters,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error fetching paginated leads: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

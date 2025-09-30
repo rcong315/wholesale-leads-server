@@ -20,5 +20,8 @@ class Config:
     # Street View Static API endpoint
     STREETVIEW_STATIC_API_URL = "https://maps.googleapis.com/maps/api/streetview"
 
+    # Street View Metadata API endpoint
+    STREETVIEW_METADATA_API_URL = "https://maps.googleapis.com/maps/api/streetview/metadata"
+
     # Geocoding API endpoint for address validation
     GEOCODING_API_URL = "https://maps.googleapis.com/maps/api/geocode/json"

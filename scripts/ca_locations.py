@@ -3,9 +3,9 @@
 # Supports both city names and ZIP codes for scraping
 
 CALIFORNIA_LOCATIONS = [
-    "Temecula",
-    "Murrieta",
-    "Moreno Valley",
+    # "Temecula",
+    # "Murrieta",
+    # TODO: "Moreno Valley",
     "San Jacinto",
     "Hemet",
     "Corona",
@@ -32,16 +32,19 @@ CALIFORNIA_LOCATIONS = [
     "McFarland",
     "Palmdale",
     "Lancaster",
-    "Oxnard"
+    "Oxnard",
 ]
+
 
 def get_locations():
     """Return the list of California locations"""
     return CALIFORNIA_LOCATIONS
 
+
 def get_location_count():
     """Return the total number of locations"""
     return len(CALIFORNIA_LOCATIONS)
+
 
 if __name__ == "__main__":
     print(f"Total California locations: {get_location_count()}")

@@ -8,3 +8,5 @@ scraped_data/
 **/token.json
 **/credentials.json
 *.csv
+*.db*
+*.claude

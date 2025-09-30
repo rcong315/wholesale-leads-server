@@ -46,6 +46,43 @@ class StreetViewAPI:
             logger.error(f"Error geocoding address '{address}': {e}")
             return None
 
+    def get_street_view_metadata(
+        self, lat: float, lng: float, heading: int = None
+    ) -> Optional[dict]:
+        """Get Street View metadata including image date"""
+        if not self.config.GOOGLE_STREETVIEW_API_KEY:
+            logger.error("Google API key not configured")
+            return None
+
+        try:
+            params = {
+                "location": f"{lat},{lng}",
+                "key": self.config.GOOGLE_STREETVIEW_API_KEY,
+            }
+
+            if heading is not None:
+                params["heading"] = heading
+
+            url = f"{self.config.STREETVIEW_METADATA_API_URL}?{urlencode(params)}"
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+
+            data = response.json()
+
+            if data.get("status") == "OK":
+                return {
+                    "date": data.get("date"),
+                    "pano_id": data.get("pano_id"),
+                    "location": data.get("location"),
+                }
+            else:
+                logger.warning(f"Metadata request failed: {data.get('status')}")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error fetching Street View metadata: {e}")
+            return None
+
     def get_street_view_image_data(
         self,
         address: str = None,
