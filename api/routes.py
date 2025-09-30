@@ -252,18 +252,19 @@ async def delete_leads_for_location(location: str):
     return {"message": f"Successfully deleted leads for location {location}"}
 
 
-@app.get("/leads")
+@app.post("/leads")
 async def get_leads(
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     sort_by: str = Query("id"),
     sort_order: str = Query("asc"),
-    filters: Optional[Dict] = Body(None),
+    body: Optional[Dict] = Body(None),
 ):
     """Get paginated leads with optional filters and sorting"""
     db = Database()
 
     try:
+        filters = body.get("filters") if body else None
         result = db.get_leads_paginated(
             offset=offset,
             limit=limit,

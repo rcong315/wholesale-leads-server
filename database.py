@@ -6,33 +6,81 @@ from typing import List, Dict, Optional
 
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
-    logging.warning("psutil not available - memory monitoring disabled. Install with: pip install psutil")
+    logging.warning(
+        "psutil not available - memory monitoring disabled. Install with: pip install psutil"
+    )
 
 logger = logging.getLogger(__name__)
 
 # Column mapping for easy schema modifications
 CSV_COLUMNS = [
-    "property_address", "city", "state", "zip", "phone_numbers",
-    "owner_first_name", "owner_last_name", "list_count", "tag_count",
-    "mailing_address", "mailing_city", "mailing_state", "mailing_zip_code",
-    "emails", "pics", "apn", "est_value", "county", "date_added", "date_updated",
-    "last_sale_date", "last_sale_amount", "mailing_county", "salesforce_lead_id",
-    "vacancy", "mailing_vacancy", "opt_out", "property_type", "owner_occupied",
-    "bedrooms", "bathrooms", "property_sqft", "lot_size", "year_build",
-    "assessed_value", "total_loan_balance", "est_equity", "est_ltv", "mls_status",
-    "data_provider_ranking", "probate", "liens", "pre_foreclosure", "taxes",
-    "vacant", "zoning", "loan_type", "loan_interest_rate", "owner_2_first_name",
-    "owner_2_last_name", "self_managed", "pushed_to_batchdialer", "lead_score",
-    "arv", "spread", "pct_arv"
+    "property_address",
+    "city",
+    "state",
+    "zip",
+    "phone_numbers",
+    "owner_first_name",
+    "owner_last_name",
+    "list_count",
+    "tag_count",
+    "mailing_address",
+    "mailing_city",
+    "mailing_state",
+    "mailing_zip_code",
+    "emails",
+    "pics",
+    "apn",
+    "est_value",
+    "county",
+    "date_added",
+    "date_updated",
+    "last_sale_date",
+    "last_sale_amount",
+    "mailing_county",
+    "salesforce_lead_id",
+    "vacancy",
+    "mailing_vacancy",
+    "opt_out",
+    "property_type",
+    "owner_occupied",
+    "bedrooms",
+    "bathrooms",
+    "property_sqft",
+    "lot_size",
+    "year_build",
+    "assessed_value",
+    "total_loan_balance",
+    "est_equity",
+    "est_ltv",
+    "mls_status",
+    "data_provider_ranking",
+    "probate",
+    "liens",
+    "pre_foreclosure",
+    "taxes",
+    "vacant",
+    "zoning",
+    "loan_type",
+    "loan_interest_rate",
+    "owner_2_first_name",
+    "owner_2_last_name",
+    "self_managed",
+    "pushed_to_batchdialer",
+    "lead_score",
+    "arv",
+    "spread",
+    "pct_arv",
 ]
 
 # Configuration for memory management
 DEFAULT_CHUNK_SIZE = 500  # Process leads in chunks of 500
 MEMORY_WARNING_THRESHOLD_MB = 1000  # Warn when process uses > 1GB
 MEMORY_CRITICAL_THRESHOLD_MB = 2000  # Critical warning at 2GB
+
 
 class Database:
     def __init__(self, db_path: str = None, chunk_size: int = DEFAULT_CHUNK_SIZE):
@@ -48,7 +96,8 @@ class Database:
         """Initialize database and create tables"""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                conn.execute("""
+                conn.execute(
+                    """
                 CREATE TABLE IF NOT EXISTS leads (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     property_address TEXT,
@@ -111,21 +160,32 @@ class Database:
                     scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
-                """)
+                """
+                )
 
                 # Create indexes for common queries
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_location ON leads(location)")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_scraped_at ON leads(scraped_at)")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_created_at ON leads(created_at)")
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_location ON leads(location)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_scraped_at ON leads(scraped_at)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_created_at ON leads(created_at)"
+                )
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_city ON leads(city)")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_zip ON leads(zip)")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_property_address ON leads(property_address)")
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_property_address ON leads(property_address)"
+                )
 
                 # Check if we need to add created_at column to existing tables
                 cursor = conn.execute("PRAGMA table_info(leads)")
                 columns = [column[1] for column in cursor.fetchall()]
-                if 'created_at' not in columns:
-                    conn.execute("ALTER TABLE leads ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP")
+                if "created_at" not in columns:
+                    conn.execute(
+                        "ALTER TABLE leads ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP"
+                    )
                     logger.info("Added created_at column to existing leads table")
 
                 conn.commit()
@@ -177,11 +237,13 @@ class Database:
 
                 # Process leads in chunks to manage memory
                 for i in range(0, len(leads), self.chunk_size):
-                    chunk = leads[i:i + self.chunk_size]
+                    chunk = leads[i : i + self.chunk_size]
                     chunk_num = (i // self.chunk_size) + 1
                     total_chunks = (len(leads) + self.chunk_size - 1) // self.chunk_size
 
-                    logger.info(f"Processing chunk {chunk_num}/{total_chunks} ({len(chunk)} leads) for location {location}")
+                    logger.info(
+                        f"Processing chunk {chunk_num}/{total_chunks} ({len(chunk)} leads) for location {location}"
+                    )
 
                     # Prepare insert data for this chunk
                     insert_data = []
@@ -191,42 +253,67 @@ class Database:
                         # Convert CSV headers to database columns
                         db_lead = {}
                         for key, value in lead.items():
-                            db_key = key.lower().replace(' ', '_').replace('.', '').replace('?', '').replace('%', 'pct')
+                            db_key = (
+                                key.lower()
+                                .replace(" ", "_")
+                                .replace(".", "")
+                                .replace("?", "")
+                                .replace("%", "pct")
+                            )
                             if db_key in CSV_COLUMNS:
                                 # Handle numeric fields
-                                if db_key in ['list_count', 'tag_count', 'bedrooms', 'bathrooms', 'year_build', 'lead_score']:
+                                if db_key in [
+                                    "list_count",
+                                    "tag_count",
+                                    "bedrooms",
+                                    "bathrooms",
+                                    "year_build",
+                                    "lead_score",
+                                ]:
                                     try:
-                                        db_lead[db_key] = int(value) if value and value != '-' else None
+                                        db_lead[db_key] = (
+                                            int(value)
+                                            if value and value != "-"
+                                            else None
+                                        )
                                     except ValueError:
                                         db_lead[db_key] = None
                                 else:
-                                    db_lead[db_key] = value if value != '-' else None
+                                    db_lead[db_key] = value if value != "-" else None
 
                         # Ensure location and timestamps are properly set
-                        db_lead['location'] = location
-                        db_lead['created_at'] = current_time
+                        db_lead["location"] = location
+                        db_lead["created_at"] = current_time
                         insert_data.append(db_lead)
 
                     # Build dynamic insert query for this chunk
                     if insert_data:
                         sample_lead = insert_data[0]
                         columns = list(sample_lead.keys())
-                        placeholders = ', '.join(['?' for _ in columns])
+                        placeholders = ", ".join(["?" for _ in columns])
                         insert_query = f"INSERT INTO leads ({', '.join(columns)}) VALUES ({placeholders})"
 
                         # Execute batch insert for this chunk
-                        values_list = [[lead.get(col) for col in columns] for lead in insert_data]
+                        values_list = [
+                            [lead.get(col) for col in columns] for lead in insert_data
+                        ]
                         conn.executemany(insert_query, values_list)
                         total_saved += len(insert_data)
 
-                        logger.debug(f"Saved chunk {chunk_num}: {len(insert_data)} leads")
+                        logger.debug(
+                            f"Saved chunk {chunk_num}: {len(insert_data)} leads"
+                        )
 
                         # Log memory usage after each chunk
-                        self._log_memory_usage(f"after chunk {chunk_num}/{total_chunks}")
+                        self._log_memory_usage(
+                            f"after chunk {chunk_num}/{total_chunks}"
+                        )
 
                 # Commit all changes
                 conn.commit()
-                logger.info(f"Successfully saved {total_saved} leads for location {location} in {total_chunks} chunks")
+                logger.info(
+                    f"Successfully saved {total_saved} leads for location {location} in {total_chunks} chunks"
+                )
 
                 self._log_memory_usage(f"after saving all leads for {location}")
                 return total_saved
@@ -244,7 +331,7 @@ class Database:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.execute(
                     "SELECT * FROM leads WHERE location = ? ORDER BY scraped_at DESC",
-                    (location,)
+                    (location,),
                 )
                 rows = cursor.fetchall()
 
@@ -256,7 +343,7 @@ class Database:
 
                 # Get scrape info from first row
                 first_row = rows[0]
-                scraped_at = datetime.fromisoformat(first_row['scraped_at'])
+                scraped_at = datetime.fromisoformat(first_row["scraped_at"])
                 cache_age_days = (datetime.now() - scraped_at).days
 
                 return {
@@ -265,7 +352,7 @@ class Database:
                     "leads": leads,
                     "cached": True,
                     "cache_age_days": cache_age_days,
-                    "scraped_at": first_row['scraped_at']
+                    "scraped_at": first_row["scraped_at"],
                 }
 
         except Exception as e:
@@ -277,8 +364,7 @@ class Database:
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.execute(
-                    "SELECT COUNT(*) FROM leads WHERE location = ?",
-                    (location,)
+                    "SELECT COUNT(*) FROM leads WHERE location = ?", (location,)
                 )
                 count = cursor.fetchone()[0]
                 return count > 0
@@ -304,7 +390,9 @@ class Database:
         """Delete all leads for a location"""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("DELETE FROM leads WHERE location = ?", (location,))
+                cursor = conn.execute(
+                    "DELETE FROM leads WHERE location = ?", (location,)
+                )
                 conn.commit()
                 logger.info(f"Deleted {cursor.rowcount} leads for location {location}")
                 return cursor.rowcount > 0
@@ -313,7 +401,14 @@ class Database:
             logger.error(f"Failed to delete location {location}: {e}")
             return False
 
-    def get_leads_paginated(self, offset: int = 0, limit: int = 100, filters: Optional[Dict] = None, sort_by: str = "id", sort_order: str = "asc") -> Dict:
+    def get_leads_paginated(
+        self,
+        offset: int = 0,
+        limit: int = 100,
+        filters: Optional[Dict] = None,
+        sort_by: str = "id",
+        sort_order: str = "asc",
+    ) -> Dict:
         """Get paginated leads with optional filters and sorting"""
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -324,11 +419,27 @@ class Database:
                 params = []
                 if filters:
                     for key, value in filters.items():
-                        if value is not None:
-                            where_conditions.append(f"{key} = ?")
-                            params.append(value)
+                        if value is not None and key not in ['minValue', 'maxValue']:
+                            if key == 'city':
+                                where_conditions.append(f"{key} LIKE ?")
+                                params.append(f"{value}%")
+                            else:
+                                where_conditions.append(f"{key} = ?")
+                                params.append(value)
 
-                where_clause = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
+                    # Handle value range filters (remove $ and commas before casting)
+                    if 'minValue' in filters and filters['minValue'] is not None:
+                        where_conditions.append("CAST(REPLACE(REPLACE(est_value, '$', ''), ',', '') AS REAL) >= ?")
+                        params.append(float(filters['minValue']))
+                    if 'maxValue' in filters and filters['maxValue'] is not None:
+                        where_conditions.append("CAST(REPLACE(REPLACE(est_value, '$', ''), ',', '') AS REAL) <= ?")
+                        params.append(float(filters['maxValue']))
+
+                where_clause = (
+                    f"WHERE {' AND '.join(where_conditions)}"
+                    if where_conditions
+                    else ""
+                )
 
                 # Validate sort order
                 sort_order = sort_order.lower()
@@ -351,7 +462,7 @@ class Database:
                     "total": total,
                     "offset": offset,
                     "limit": limit,
-                    "count": len(leads)
+                    "count": len(leads),
                 }
 
         except Exception as e:
