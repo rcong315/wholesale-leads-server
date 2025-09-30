@@ -35,7 +35,11 @@ MEMORY_WARNING_THRESHOLD_MB = 1000  # Warn when process uses > 1GB
 MEMORY_CRITICAL_THRESHOLD_MB = 2000  # Critical warning at 2GB
 
 class Database:
-    def __init__(self, db_path: str = "leads.db", chunk_size: int = DEFAULT_CHUNK_SIZE):
+    def __init__(self, db_path: str = None, chunk_size: int = DEFAULT_CHUNK_SIZE):
+        if db_path is None:
+            # Use /app/data in Docker, current directory otherwise
+            data_dir = "/app/data" if os.path.exists("/app/data") else "."
+            db_path = os.path.join(data_dir, "leads.db")
         self.db_path = db_path
         self.chunk_size = chunk_size
         self.init_db()
