@@ -1,9 +1,7 @@
-fastapi>=0.104.1
-uvicorn>=0.24.0
-requests>=2.31.0
-beautifulsoup4>=4.12.2
-python-dotenv>=1.0.0
-playwright>=1.40.0
-google>=3.0.0
-google-api-python-client>=2.181.0
-google-auth-oauthlib>=1.2.2
+fastapi==0.104.1
+uvicorn==0.24.0
+requests==2.31.0
+beautifulsoup4==4.12.2
+python-dotenv==1.0.0
+playwright==1.48.0
+psutil==6.1.0

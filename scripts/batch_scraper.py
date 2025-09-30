@@ -4,9 +4,9 @@ import asyncio
 import logging
 import time
 from datetime import datetime
-from ca_zip_codes import get_zip_codes
+from ca_locations import get_locations
 from scraper.scraper import BatchLeadsScraper
-from google_drive.api import GoogleDriveAPI
+from database import Database
 
 # Configure logging
 logging.basicConfig(
@@ -28,8 +28,8 @@ class BatchScraper:
         self.start_time = None
 
         self.scraper = BatchLeadsScraper()
-        self.drive_api = GoogleDriveAPI() if skip_existing else None
-        self.existing_zip_codes = set()
+        self.database = Database(chunk_size=500)  # Use chunked processing
+        self.existing_locations = set()
 
     async def init_browser(self, headless=True):
         await self.scraper.init_browser(headless=headless)
@@ -37,69 +37,90 @@ class BatchScraper:
     async def login(self):
         await self.scraper.login()
 
-    def load_existing_zip_codes(self):
-        if self.drive_api:
-            logger.info("Checking Google Drive for existing zip code files...")
-            self.existing_zip_codes = self.drive_api.get_existing_zip_codes()
+    def load_existing_locations(self):
+        if self.skip_existing:
+            logger.info("Checking SQLite database for existing locations...")
+            cached_locations = self.database.get_locations()
+            self.existing_locations = set(cached_locations)
             logger.info(
-                f"Found {len(self.existing_zip_codes)} existing zip codes that will be skipped"
+                f"Found {len(self.existing_locations)} existing locations that will be skipped"
             )
         else:
-            logger.info("Skip existing files disabled - will process all zip codes")
+            logger.info("Skip existing disabled - will process all locations")
 
     async def scrape_all_california(self, start_index=0, limit=None):
-        zip_codes = get_zip_codes()
+        locations = get_locations()
 
         if limit:
-            zip_codes = zip_codes[start_index : start_index + limit]
+            locations = locations[start_index : start_index + limit]
         else:
-            zip_codes = zip_codes[start_index:]
+            locations = locations[start_index:]
 
-        # Load existing zip codes to skip
-        self.load_existing_zip_codes()
+        # Load existing locations to skip
+        self.load_existing_locations()
 
-        # Filter out existing zip codes if skip_existing is enabled
+        # Filter out existing locations if skip_existing is enabled
         if self.skip_existing:
-            original_count = len(zip_codes)
-            zip_codes = [zc for zc in zip_codes if zc not in self.existing_zip_codes]
-            skipped_count = original_count - len(zip_codes)
+            original_count = len(locations)
+            locations = [loc for loc in locations if loc not in self.existing_locations]
+            skipped_count = original_count - len(locations)
             if skipped_count > 0:
                 logger.info(
-                    f"Skipping {skipped_count} zip codes that already exist in Google Drive"
+                    f"Skipping {skipped_count} locations that already exist in SQLite database"
                 )
                 self.skipped = skipped_count
 
-        total_zips = len(zip_codes)
-        if total_zips == 0:
-            logger.info("No new zip codes to process - all are already cached!")
+        total_locations = len(locations)
+        if total_locations == 0:
+            logger.info("No new locations to process - all are already cached!")
             return
 
-        logger.info(f"Starting batch scrape of {total_zips} ZIP codes...")
-        logger.info(f"Max retries per ZIP: {self.max_retries}")
+        logger.info(f"Starting batch scrape of {total_locations} California locations...")
+        logger.info(f"Max retries per location: {self.max_retries}")
 
         self.start_time = time.time()
 
-        for i, zip_code in enumerate(zip_codes, 1):
+        for i, location in enumerate(locations, 1):
             logger.info(
-                f"Progress: {i}/{total_zips} ({(i/total_zips)*100:.1f}%) - Processing ZIP: {zip_code}"
+                f"Progress: {i}/{total_locations} ({(i/total_locations)*100:.1f}%) - Processing location: {location}"
             )
 
             try:
-                await self.scraper.scrape_zip_code(zip_code)
-                self.processed += 1
-                logger.info(f"Successfully processed ZIP code: {zip_code}")
+                # Check if location already exists in database (if skip_existing is enabled)
+                if self.skip_existing and self.database.location_exists(location):
+                    logger.info(f"Location {location} already exists in database, skipping...")
+                    self.skipped += 1
+                    continue
+
+                # Scrape the location (using chunked processing - data is saved during scraping)
+                leads = await self.scraper.scrape_location(location, use_chunked_processing=True)
+
+                # Check results - chunked processing saves data during scraping
+                if leads and len(leads) > 0:
+                    logger.info(f"Successfully processed location: {location} ({len(leads)} leads)")
+                    self.processed += 1
+                else:
+                    # Check if location has any leads in database (might have been saved via chunked processing)
+                    db_result = self.database.get_leads(location)
+                    if db_result and db_result.get('total_leads', 0) > 0:
+                        logger.info(f"Successfully processed location: {location} ({db_result['total_leads']} leads saved via chunked processing)")
+                        self.processed += 1
+                    else:
+                        logger.info(f"No leads found for location: {location}")
+                        self.processed += 1
+
             except Exception as e:
                 self.failed += 1
-                logger.error(f"Failed to process ZIP code {zip_code}: {str(e)}")
+                logger.error(f"Failed to process location {location}: {str(e)}")
 
-            # Progress update every 10 ZIP codes
+            # Progress update every 10 locations
             if i % 10 == 0:
                 elapsed_time = time.time() - self.start_time
-                avg_time_per_zip = elapsed_time / i
-                estimated_remaining = avg_time_per_zip * (total_zips - i)
+                avg_time_per_location = elapsed_time / i
+                estimated_remaining = avg_time_per_location * (total_locations - i)
 
                 logger.info(f"--- Progress Report ---")
-                logger.info(f"Processed: {i}/{total_zips} ({(i/total_zips)*100:.1f}%)")
+                logger.info(f"Processed: {i}/{total_locations} ({(i/total_locations)*100:.1f}%)")
                 logger.info(f"Fresh scrapes: {self.processed}")
                 logger.info(f"Cached results: {self.skipped}")
                 logger.info(f"Failed: {self.failed}")
@@ -107,16 +128,16 @@ class BatchScraper:
                 logger.info(
                     f"Estimated remaining: {estimated_remaining/60:.1f} minutes"
                 )
-                logger.info(f"Average time per ZIP: {avg_time_per_zip:.2f} seconds")
+                logger.info(f"Average time per location: {avg_time_per_location:.2f} seconds")
                 logger.info("---------------------")
 
             # Add delay between requests to be respectful to the server
-            if i < total_zips:
+            if i < total_locations:
                 await asyncio.sleep(self.delay_seconds)
 
-        self.print_final_summary(total_zips)
+        self.print_final_summary(total_locations)
 
-    def print_final_summary(self, total_zips):
+    def print_final_summary(self, total_locations):
         """Print final summary statistics"""
         elapsed_time = time.time() - self.start_time
 
