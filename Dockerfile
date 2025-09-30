@@ -1,4 +1,4 @@
-FROM python:3.15-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -14,8 +14,8 @@ RUN pip install --upgrade pip
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN playwright install chromium
-RUN playwright install-deps chromium
+# RUN playwright install chromium
+# RUN playwright install-deps chromium
 
 COPY . .
 

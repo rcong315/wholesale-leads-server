@@ -17,7 +17,15 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Image-Date", "X-Address", "X-Coordinates", "X-Image-Size", "X-Pitch", "X-FOV", "X-Heading"],
+    expose_headers=[
+        "X-Image-Date",
+        "X-Address",
+        "X-Coordinates",
+        "X-Image-Size",
+        "X-Pitch",
+        "X-FOV",
+        "X-Heading",
+    ],
 )
 
 # Global dict to track scraping progress
@@ -58,82 +66,82 @@ async def get_scraping_progress(location: str):
         }
 
 
-@app.post("/scrape/{location}")
-async def scrape_leads(
-    location: str,
-    background_tasks: BackgroundTasks,
-    headless: bool = Query(None, description="Override headless mode"),
-    use_cache: bool = Query(True, description="Use cached data if available"),
-):
-    # Check if already being scraped
-    if (
-        location in scraping_status
-        and scraping_status[location]["status"] == "in_progress"
-    ):
-        return {
-            "error": "Scraping already in progress for this location",
-            "status": "in_progress",
-        }
+# @app.post("/scrape/{location}")
+# async def scrape_leads(
+#     location: str,
+#     background_tasks: BackgroundTasks,
+#     headless: bool = Query(None, description="Override headless mode"),
+#     use_cache: bool = Query(True, description="Use cached data if available"),
+# ):
+#     # Check if already being scraped
+#     if (
+#         location in scraping_status
+#         and scraping_status[location]["status"] == "in_progress"
+#     ):
+#         return {
+#             "error": "Scraping already in progress for this location",
+#             "status": "in_progress",
+#         }
 
-    # Check cache first
-    if use_cache:
-        db = Database()
-        cached_data = db.get_leads(location)
-        if cached_data:
-            return cached_data
+#     # Check cache first
+#     if use_cache:
+#         db = Database()
+#         cached_data = db.get_leads(location)
+#         if cached_data:
+#             return cached_data
 
-    # Start background scraping task
-    background_tasks.add_task(background_scrape, location, headless, use_cache)
+#     # Start background scraping task
+#     background_tasks.add_task(background_scrape, location, headless, use_cache)
 
-    # Initialize status
-    scraping_status[location] = {
-        "status": "in_progress",
-        "message": "Starting scrape...",
-        "progress": 0,
-    }
+#     # Initialize status
+#     scraping_status[location] = {
+#         "status": "in_progress",
+#         "message": "Starting scrape...",
+#         "progress": 0,
+#     }
 
-    return {
-        "status": "started",
-        "message": "Scraping started. Check /progress/{location} for updates or /status/{location} for completion status.",
-        "location": location,
-    }
+#     return {
+#         "status": "started",
+#         "message": "Scraping started. Check /progress/{location} for updates or /status/{location} for completion status.",
+#         "location": location,
+#     }
 
 
-async def background_scrape(location: str, headless=None, use_cache=True):
-    def progress_callback(message):
-        if location in scraping_status:
-            scraping_status[location]["message"] = message
-            logger.info(f"Progress for {location}: {message}")
+# async def background_scrape(location: str, headless=None, use_cache=True):
+#     def progress_callback(message):
+#         if location in scraping_status:
+#             scraping_status[location]["message"] = message
+#             logger.info(f"Progress for {location}: {message}")
 
-    try:
-        result = await scrape(
-            location,
-            headless=headless,
-            use_cache=use_cache,
-            progress_callback=progress_callback,
-        )
+#     try:
+#         result = await scrape(
+#             location,
+#             headless=headless,
+#             use_cache=use_cache,
+#             progress_callback=progress_callback,
+#         )
 
-        if "error" in result:
-            scraping_status[location] = {
-                "status": "error",
-                "message": result["error"],
-                "progress": 0,
-            }
-        else:
-            scraping_status[location] = {
-                "status": "completed",
-                "message": f"Found {result['total_leads']} leads",
-                "progress": 100,
-                "result": result,
-            }
+#         if "error" in result:
+#             scraping_status[location] = {
+#                 "status": "error",
+#                 "message": result["error"],
+#                 "progress": 0,
+#             }
+#         else:
+#             scraping_status[location] = {
+#                 "status": "completed",
+#                 "message": f"Found {result['total_leads']} leads",
+#                 "progress": 100,
+#                 "result": result,
+#             }
 
-    except Exception as e:
-        logger.error(f"Background scrape error for {location}: {e}")
-        scraping_status[location] = {
-            "status": "error",
-            "message": str(e),
-            "progress": 0,
-        }
+#     except Exception as e:
+#         logger.error(f"Background scrape error for {location}: {e}")
+#         scraping_status[location] = {
+#             "status": "error",
+#             "message": str(e),
+#             "progress": 0,
+#         }
 
 
 @app.get("/street-view/image")
@@ -215,7 +223,9 @@ async def get_leads_for_location(location: str):
     leads_data = db.get_leads(location)
 
     if not leads_data:
-        raise HTTPException(status_code=404, detail=f"No leads found for location {location}")
+        raise HTTPException(
+            status_code=404, detail=f"No leads found for location {location}"
+        )
 
     return leads_data
 
@@ -235,7 +245,9 @@ async def delete_leads_for_location(location: str):
     success = db.delete_location(location)
 
     if not success:
-        raise HTTPException(status_code=404, detail=f"No leads found for location {location}")
+        raise HTTPException(
+            status_code=404, detail=f"No leads found for location {location}"
+        )
 
     return {"message": f"Successfully deleted leads for location {location}"}
 
@@ -246,7 +258,7 @@ async def get_leads(
     limit: int = Query(100, ge=1, le=1000),
     sort_by: str = Query("id"),
     sort_order: str = Query("asc"),
-    filters: Optional[Dict] = Body(None)
+    filters: Optional[Dict] = Body(None),
 ):
     """Get paginated leads with optional filters and sorting"""
     db = Database()
@@ -257,7 +269,7 @@ async def get_leads(
             limit=limit,
             filters=filters,
             sort_by=sort_by,
-            sort_order=sort_order
+            sort_order=sort_order,
         )
         return result
     except Exception as e:
