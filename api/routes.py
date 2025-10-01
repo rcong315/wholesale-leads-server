@@ -252,6 +252,18 @@ async def delete_leads_for_location(location: str):
     return {"message": f"Successfully deleted leads for location {location}"}
 
 
+@app.get("/filter-options")
+async def get_filter_options():
+    """Get distinct values for filter dropdowns"""
+    db = Database()
+    try:
+        options = db.get_filter_options()
+        return options
+    except Exception as e:
+        logger.error(f"Error fetching filter options: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/leads")
 async def get_leads(
     offset: int = Query(0, ge=0),

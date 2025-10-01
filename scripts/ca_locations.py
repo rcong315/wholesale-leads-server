@@ -5,7 +5,7 @@
 CALIFORNIA_LOCATIONS = [
     # "Temecula",
     # "Murrieta",
-    "Moreno Valley",
+    # TODO: "Moreno Valley",
     # "San Jacinto",
     # "Hemet",
     # "Corona",

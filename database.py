@@ -510,3 +510,51 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to get paginated leads: {e}")
             raise
+
+    def get_filter_options(self) -> Dict:
+        """Get distinct values for filter dropdowns"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                options = {}
+
+                # Get distinct cities
+                cursor = conn.execute(
+                    "SELECT DISTINCT city FROM leads WHERE city IS NOT NULL AND city != '' AND city != '-' ORDER BY city"
+                )
+                options["cities"] = [row[0] for row in cursor.fetchall()]
+
+                # Get distinct MLS statuses
+                cursor = conn.execute(
+                    "SELECT DISTINCT mls_status FROM leads WHERE mls_status IS NOT NULL AND mls_status != '' AND mls_status != '-' ORDER BY mls_status"
+                )
+                options["mlsStatuses"] = [row[0] for row in cursor.fetchall()]
+
+                # Get distinct probate values
+                cursor = conn.execute(
+                    "SELECT DISTINCT probate FROM leads WHERE probate IS NOT NULL AND probate != '' AND probate != '-' ORDER BY probate"
+                )
+                options["probateValues"] = [row[0] for row in cursor.fetchall()]
+
+                # Get distinct liens values
+                cursor = conn.execute(
+                    "SELECT DISTINCT liens FROM leads WHERE liens IS NOT NULL AND liens != '' AND liens != '-' ORDER BY liens"
+                )
+                options["liensValues"] = [row[0] for row in cursor.fetchall()]
+
+                # Get distinct pre-foreclosure values
+                cursor = conn.execute(
+                    "SELECT DISTINCT pre_foreclosure FROM leads WHERE pre_foreclosure IS NOT NULL AND pre_foreclosure != '' AND pre_foreclosure != '-' ORDER BY pre_foreclosure"
+                )
+                options["preForeclosureValues"] = [row[0] for row in cursor.fetchall()]
+
+                # Get distinct taxes values
+                cursor = conn.execute(
+                    "SELECT DISTINCT taxes FROM leads WHERE taxes IS NOT NULL AND taxes != '' AND taxes != '-' ORDER BY taxes"
+                )
+                options["taxesValues"] = [row[0] for row in cursor.fetchall()]
+
+                return options
+
+        except Exception as e:
+            logger.error(f"Failed to get filter options: {e}")
+            raise
