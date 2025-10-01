@@ -418,11 +418,29 @@ class Database:
                 where_conditions = []
                 params = []
                 if filters:
+                    range_filters = ['minValue', 'maxValue', 'minSaleAmount', 'maxSaleAmount',
+                                   'minLoanBalance', 'maxLoanBalance', 'minInterestRate', 'maxInterestRate']
+
                     for key, value in filters.items():
-                        if value is not None and key not in ['minValue', 'maxValue']:
+                        if value is not None and key not in range_filters:
                             if key == 'city':
                                 where_conditions.append(f"{key} LIKE ?")
                                 params.append(f"{value}%")
+                            elif key == 'mlsStatus':
+                                where_conditions.append("mls_status LIKE ?")
+                                params.append(f"%{value}%")
+                            elif key == 'probate':
+                                where_conditions.append("probate = ?")
+                                params.append(value)
+                            elif key == 'liens':
+                                where_conditions.append("liens = ?")
+                                params.append(value)
+                            elif key == 'preForeclosure':
+                                where_conditions.append("pre_foreclosure = ?")
+                                params.append(value)
+                            elif key == 'taxes':
+                                where_conditions.append("taxes LIKE ?")
+                                params.append(f"%{value}%")
                             else:
                                 where_conditions.append(f"{key} = ?")
                                 params.append(value)
@@ -434,6 +452,30 @@ class Database:
                     if 'maxValue' in filters and filters['maxValue'] is not None:
                         where_conditions.append("CAST(REPLACE(REPLACE(est_value, '$', ''), ',', '') AS REAL) <= ?")
                         params.append(float(filters['maxValue']))
+
+                    # Handle last sale amount filters
+                    if 'minSaleAmount' in filters and filters['minSaleAmount'] is not None:
+                        where_conditions.append("CAST(REPLACE(REPLACE(last_sale_amount, '$', ''), ',', '') AS REAL) >= ?")
+                        params.append(float(filters['minSaleAmount']))
+                    if 'maxSaleAmount' in filters and filters['maxSaleAmount'] is not None:
+                        where_conditions.append("CAST(REPLACE(REPLACE(last_sale_amount, '$', ''), ',', '') AS REAL) <= ?")
+                        params.append(float(filters['maxSaleAmount']))
+
+                    # Handle loan balance filters
+                    if 'minLoanBalance' in filters and filters['minLoanBalance'] is not None:
+                        where_conditions.append("CAST(REPLACE(REPLACE(total_loan_balance, '$', ''), ',', '') AS REAL) >= ?")
+                        params.append(float(filters['minLoanBalance']))
+                    if 'maxLoanBalance' in filters and filters['maxLoanBalance'] is not None:
+                        where_conditions.append("CAST(REPLACE(REPLACE(total_loan_balance, '$', ''), ',', '') AS REAL) <= ?")
+                        params.append(float(filters['maxLoanBalance']))
+
+                    # Handle interest rate filters
+                    if 'minInterestRate' in filters and filters['minInterestRate'] is not None:
+                        where_conditions.append("CAST(REPLACE(loan_interest_rate, '%', '') AS REAL) >= ?")
+                        params.append(float(filters['minInterestRate']))
+                    if 'maxInterestRate' in filters and filters['maxInterestRate'] is not None:
+                        where_conditions.append("CAST(REPLACE(loan_interest_rate, '%', '') AS REAL) <= ?")
+                        params.append(float(filters['maxInterestRate']))
 
                 where_clause = (
                     f"WHERE {' AND '.join(where_conditions)}"
