@@ -252,12 +252,22 @@ async def delete_leads_for_location(location: str):
     return {"message": f"Successfully deleted leads for location {location}"}
 
 
+@app.get("/filter-options")
+async def get_filter_options():
+    """Get distinct values for filter dropdowns"""
+    db = Database()
+    try:
+        options = db.get_filter_options()
+        return options
+    except Exception as e:
+        logger.error(f"Error fetching filter options: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/leads")
 async def get_leads(
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    sort_by: str = Query("id"),
-    sort_order: str = Query("asc"),
     body: Optional[Dict] = Body(None),
 ):
     """Get paginated leads with optional filters and sorting"""
@@ -265,11 +275,36 @@ async def get_leads(
 
     try:
         filters = body.get("filters") if body else None
+        sort_by_param = body.get("sortBy", "") if body else ""
+
+        # Parse sortBy parameter (e.g., "value_desc" -> column="est_value", order="desc")
+        sort_column = "id"
+        sort_order = "asc"
+
+        if sort_by_param:
+            # Map frontend sort values to database columns
+            sort_mapping = {
+                "value": "est_value",
+                "city": "city",
+                "last_sale_date": "last_sale_date",
+                "last_sale_amount": "last_sale_amount",
+                "loan_balance": "total_loan_balance",
+                "interest_rate": "loan_interest_rate"
+            }
+
+            # Split the sort parameter (e.g., "value_desc" -> ["value", "desc"])
+            parts = sort_by_param.rsplit("_", 1)
+            if len(parts) == 2:
+                field, order = parts
+                if field in sort_mapping and order in ["asc", "desc"]:
+                    sort_column = sort_mapping[field]
+                    sort_order = order
+
         result = db.get_leads_paginated(
             offset=offset,
             limit=limit,
             filters=filters,
-            sort_by=sort_by,
+            sort_by=sort_column,
             sort_order=sort_order,
         )
         return result

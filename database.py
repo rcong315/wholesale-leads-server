@@ -418,11 +418,29 @@ class Database:
                 where_conditions = []
                 params = []
                 if filters:
+                    range_filters = ['minValue', 'maxValue', 'minSaleAmount', 'maxSaleAmount',
+                                   'minLoanBalance', 'maxLoanBalance', 'minInterestRate', 'maxInterestRate']
+
                     for key, value in filters.items():
-                        if value is not None and key not in ['minValue', 'maxValue']:
+                        if value is not None and key not in range_filters:
                             if key == 'city':
                                 where_conditions.append(f"{key} LIKE ?")
                                 params.append(f"{value}%")
+                            elif key == 'mlsStatus':
+                                where_conditions.append("mls_status LIKE ?")
+                                params.append(f"%{value}%")
+                            elif key == 'probate':
+                                where_conditions.append("probate = ?")
+                                params.append(value)
+                            elif key == 'liens':
+                                where_conditions.append("liens = ?")
+                                params.append(value)
+                            elif key == 'preForeclosure':
+                                where_conditions.append("pre_foreclosure = ?")
+                                params.append(value)
+                            elif key == 'taxes':
+                                where_conditions.append("taxes LIKE ?")
+                                params.append(f"%{value}%")
                             else:
                                 where_conditions.append(f"{key} = ?")
                                 params.append(value)
@@ -434,6 +452,30 @@ class Database:
                     if 'maxValue' in filters and filters['maxValue'] is not None:
                         where_conditions.append("CAST(REPLACE(REPLACE(est_value, '$', ''), ',', '') AS REAL) <= ?")
                         params.append(float(filters['maxValue']))
+
+                    # Handle last sale amount filters
+                    if 'minSaleAmount' in filters and filters['minSaleAmount'] is not None:
+                        where_conditions.append("CAST(REPLACE(REPLACE(last_sale_amount, '$', ''), ',', '') AS REAL) >= ?")
+                        params.append(float(filters['minSaleAmount']))
+                    if 'maxSaleAmount' in filters and filters['maxSaleAmount'] is not None:
+                        where_conditions.append("CAST(REPLACE(REPLACE(last_sale_amount, '$', ''), ',', '') AS REAL) <= ?")
+                        params.append(float(filters['maxSaleAmount']))
+
+                    # Handle loan balance filters
+                    if 'minLoanBalance' in filters and filters['minLoanBalance'] is not None:
+                        where_conditions.append("CAST(REPLACE(REPLACE(total_loan_balance, '$', ''), ',', '') AS REAL) >= ?")
+                        params.append(float(filters['minLoanBalance']))
+                    if 'maxLoanBalance' in filters and filters['maxLoanBalance'] is not None:
+                        where_conditions.append("CAST(REPLACE(REPLACE(total_loan_balance, '$', ''), ',', '') AS REAL) <= ?")
+                        params.append(float(filters['maxLoanBalance']))
+
+                    # Handle interest rate filters
+                    if 'minInterestRate' in filters and filters['minInterestRate'] is not None:
+                        where_conditions.append("CAST(REPLACE(loan_interest_rate, '%', '') AS REAL) >= ?")
+                        params.append(float(filters['minInterestRate']))
+                    if 'maxInterestRate' in filters and filters['maxInterestRate'] is not None:
+                        where_conditions.append("CAST(REPLACE(loan_interest_rate, '%', '') AS REAL) <= ?")
+                        params.append(float(filters['maxInterestRate']))
 
                 where_clause = (
                     f"WHERE {' AND '.join(where_conditions)}"
@@ -467,4 +509,52 @@ class Database:
 
         except Exception as e:
             logger.error(f"Failed to get paginated leads: {e}")
+            raise
+
+    def get_filter_options(self) -> Dict:
+        """Get distinct values for filter dropdowns"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                options = {}
+
+                # Get distinct cities
+                cursor = conn.execute(
+                    "SELECT DISTINCT city FROM leads WHERE city IS NOT NULL AND city != '' AND city != '-' ORDER BY city"
+                )
+                options["cities"] = [row[0] for row in cursor.fetchall()]
+
+                # Get distinct MLS statuses
+                cursor = conn.execute(
+                    "SELECT DISTINCT mls_status FROM leads WHERE mls_status IS NOT NULL AND mls_status != '' AND mls_status != '-' ORDER BY mls_status"
+                )
+                options["mlsStatuses"] = [row[0] for row in cursor.fetchall()]
+
+                # Get distinct probate values
+                cursor = conn.execute(
+                    "SELECT DISTINCT probate FROM leads WHERE probate IS NOT NULL AND probate != '' AND probate != '-' ORDER BY probate"
+                )
+                options["probateValues"] = [row[0] for row in cursor.fetchall()]
+
+                # Get distinct liens values
+                cursor = conn.execute(
+                    "SELECT DISTINCT liens FROM leads WHERE liens IS NOT NULL AND liens != '' AND liens != '-' ORDER BY liens"
+                )
+                options["liensValues"] = [row[0] for row in cursor.fetchall()]
+
+                # Get distinct pre-foreclosure values
+                cursor = conn.execute(
+                    "SELECT DISTINCT pre_foreclosure FROM leads WHERE pre_foreclosure IS NOT NULL AND pre_foreclosure != '' AND pre_foreclosure != '-' ORDER BY pre_foreclosure"
+                )
+                options["preForeclosureValues"] = [row[0] for row in cursor.fetchall()]
+
+                # Get distinct taxes values
+                cursor = conn.execute(
+                    "SELECT DISTINCT taxes FROM leads WHERE taxes IS NOT NULL AND taxes != '' AND taxes != '-' ORDER BY taxes"
+                )
+                options["taxesValues"] = [row[0] for row in cursor.fetchall()]
+
+                return options
+
+        except Exception as e:
+            logger.error(f"Failed to get filter options: {e}")
             raise
