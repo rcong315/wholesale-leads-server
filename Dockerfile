@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create directory for SQLite database
-RUN mkdir -p /app/data
+RUN mkdir -p /var/data
 
 EXPOSE 8000
 

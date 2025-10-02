@@ -85,8 +85,8 @@ MEMORY_CRITICAL_THRESHOLD_MB = 2000  # Critical warning at 2GB
 class Database:
     def __init__(self, db_path: str = None, chunk_size: int = DEFAULT_CHUNK_SIZE):
         if db_path is None:
-            # Use /app/data in Docker, current directory otherwise
-            data_dir = "/app/data" if os.path.exists("/app/data") else "."
+            # Use /var/data in Docker, current directory otherwise
+            data_dir = "/var/data" if os.path.exists("/var/data") else "."
             db_path = os.path.join(data_dir, "leads.db")
         self.db_path = db_path
         self.chunk_size = chunk_size
@@ -418,27 +418,35 @@ class Database:
                 where_conditions = []
                 params = []
                 if filters:
-                    range_filters = ['minValue', 'maxValue', 'minSaleAmount', 'maxSaleAmount',
-                                   'minLoanBalance', 'maxLoanBalance', 'minInterestRate', 'maxInterestRate']
+                    range_filters = [
+                        "minValue",
+                        "maxValue",
+                        "minSaleAmount",
+                        "maxSaleAmount",
+                        "minLoanBalance",
+                        "maxLoanBalance",
+                        "minInterestRate",
+                        "maxInterestRate",
+                    ]
 
                     for key, value in filters.items():
                         if value is not None and key not in range_filters:
-                            if key == 'city':
+                            if key == "city":
                                 where_conditions.append(f"{key} LIKE ?")
                                 params.append(f"{value}%")
-                            elif key == 'mlsStatus':
+                            elif key == "mlsStatus":
                                 where_conditions.append("mls_status LIKE ?")
                                 params.append(f"%{value}%")
-                            elif key == 'probate':
+                            elif key == "probate":
                                 where_conditions.append("probate = ?")
                                 params.append(value)
-                            elif key == 'liens':
+                            elif key == "liens":
                                 where_conditions.append("liens = ?")
                                 params.append(value)
-                            elif key == 'preForeclosure':
+                            elif key == "preForeclosure":
                                 where_conditions.append("pre_foreclosure = ?")
                                 params.append(value)
-                            elif key == 'taxes':
+                            elif key == "taxes":
                                 where_conditions.append("taxes LIKE ?")
                                 params.append(f"%{value}%")
                             else:
@@ -446,36 +454,70 @@ class Database:
                                 params.append(value)
 
                     # Handle value range filters (remove $ and commas before casting)
-                    if 'minValue' in filters and filters['minValue'] is not None:
-                        where_conditions.append("CAST(REPLACE(REPLACE(est_value, '$', ''), ',', '') AS REAL) >= ?")
-                        params.append(float(filters['minValue']))
-                    if 'maxValue' in filters and filters['maxValue'] is not None:
-                        where_conditions.append("CAST(REPLACE(REPLACE(est_value, '$', ''), ',', '') AS REAL) <= ?")
-                        params.append(float(filters['maxValue']))
+                    if "minValue" in filters and filters["minValue"] is not None:
+                        where_conditions.append(
+                            "CAST(REPLACE(REPLACE(est_value, '$', ''), ',', '') AS REAL) >= ?"
+                        )
+                        params.append(float(filters["minValue"]))
+                    if "maxValue" in filters and filters["maxValue"] is not None:
+                        where_conditions.append(
+                            "CAST(REPLACE(REPLACE(est_value, '$', ''), ',', '') AS REAL) <= ?"
+                        )
+                        params.append(float(filters["maxValue"]))
 
                     # Handle last sale amount filters
-                    if 'minSaleAmount' in filters and filters['minSaleAmount'] is not None:
-                        where_conditions.append("CAST(REPLACE(REPLACE(last_sale_amount, '$', ''), ',', '') AS REAL) >= ?")
-                        params.append(float(filters['minSaleAmount']))
-                    if 'maxSaleAmount' in filters and filters['maxSaleAmount'] is not None:
-                        where_conditions.append("CAST(REPLACE(REPLACE(last_sale_amount, '$', ''), ',', '') AS REAL) <= ?")
-                        params.append(float(filters['maxSaleAmount']))
+                    if (
+                        "minSaleAmount" in filters
+                        and filters["minSaleAmount"] is not None
+                    ):
+                        where_conditions.append(
+                            "CAST(REPLACE(REPLACE(last_sale_amount, '$', ''), ',', '') AS REAL) >= ?"
+                        )
+                        params.append(float(filters["minSaleAmount"]))
+                    if (
+                        "maxSaleAmount" in filters
+                        and filters["maxSaleAmount"] is not None
+                    ):
+                        where_conditions.append(
+                            "CAST(REPLACE(REPLACE(last_sale_amount, '$', ''), ',', '') AS REAL) <= ?"
+                        )
+                        params.append(float(filters["maxSaleAmount"]))
 
                     # Handle loan balance filters
-                    if 'minLoanBalance' in filters and filters['minLoanBalance'] is not None:
-                        where_conditions.append("CAST(REPLACE(REPLACE(total_loan_balance, '$', ''), ',', '') AS REAL) >= ?")
-                        params.append(float(filters['minLoanBalance']))
-                    if 'maxLoanBalance' in filters and filters['maxLoanBalance'] is not None:
-                        where_conditions.append("CAST(REPLACE(REPLACE(total_loan_balance, '$', ''), ',', '') AS REAL) <= ?")
-                        params.append(float(filters['maxLoanBalance']))
+                    if (
+                        "minLoanBalance" in filters
+                        and filters["minLoanBalance"] is not None
+                    ):
+                        where_conditions.append(
+                            "CAST(REPLACE(REPLACE(total_loan_balance, '$', ''), ',', '') AS REAL) >= ?"
+                        )
+                        params.append(float(filters["minLoanBalance"]))
+                    if (
+                        "maxLoanBalance" in filters
+                        and filters["maxLoanBalance"] is not None
+                    ):
+                        where_conditions.append(
+                            "CAST(REPLACE(REPLACE(total_loan_balance, '$', ''), ',', '') AS REAL) <= ?"
+                        )
+                        params.append(float(filters["maxLoanBalance"]))
 
                     # Handle interest rate filters
-                    if 'minInterestRate' in filters and filters['minInterestRate'] is not None:
-                        where_conditions.append("CAST(REPLACE(loan_interest_rate, '%', '') AS REAL) >= ?")
-                        params.append(float(filters['minInterestRate']))
-                    if 'maxInterestRate' in filters and filters['maxInterestRate'] is not None:
-                        where_conditions.append("CAST(REPLACE(loan_interest_rate, '%', '') AS REAL) <= ?")
-                        params.append(float(filters['maxInterestRate']))
+                    if (
+                        "minInterestRate" in filters
+                        and filters["minInterestRate"] is not None
+                    ):
+                        where_conditions.append(
+                            "CAST(REPLACE(loan_interest_rate, '%', '') AS REAL) >= ?"
+                        )
+                        params.append(float(filters["minInterestRate"]))
+                    if (
+                        "maxInterestRate" in filters
+                        and filters["maxInterestRate"] is not None
+                    ):
+                        where_conditions.append(
+                            "CAST(REPLACE(loan_interest_rate, '%', '') AS REAL) <= ?"
+                        )
+                        params.append(float(filters["maxInterestRate"]))
 
                 where_clause = (
                     f"WHERE {' AND '.join(where_conditions)}"
