@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Query, BackgroundTasks, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from scraper.scraper import scrape
 from database import Database
 from street_view.api import StreetViewAPI
 from typing import Optional, Dict
@@ -28,120 +27,10 @@ app.add_middleware(
     ],
 )
 
-# Global dict to track scraping progress
-scraping_status = {}
 
-
-@app.get("/status/{location}")
-async def check_location_status(location: str):
-    db = Database()
-
-    # Check if location exists in database
-    cached = db.location_exists(location)
-
-    # Check if currently being scraped
-    is_scraping = (
-        location in scraping_status
-        and scraping_status[location]["status"] == "in_progress"
-    )
-
-    return {
-        "location": location,
-        "cached": cached,
-        "is_scraping": is_scraping,
-        "scraping_progress": (
-            scraping_status.get(location, {}).get("message", "") if is_scraping else ""
-        ),
-    }
-
-
-@app.get("/progress/{location}")
-async def get_scraping_progress(location: str):
-    if location in scraping_status:
-        return scraping_status[location]
-    else:
-        return {
-            "status": "not_found",
-            "message": "No scraping job found for this location",
-        }
-
-
-# @app.post("/scrape/{location}")
-# async def scrape_leads(
-#     location: str,
-#     background_tasks: BackgroundTasks,
-#     headless: bool = Query(None, description="Override headless mode"),
-#     use_cache: bool = Query(True, description="Use cached data if available"),
-# ):
-#     # Check if already being scraped
-#     if (
-#         location in scraping_status
-#         and scraping_status[location]["status"] == "in_progress"
-#     ):
-#         return {
-#             "error": "Scraping already in progress for this location",
-#             "status": "in_progress",
-#         }
-
-#     # Check cache first
-#     if use_cache:
-#         db = Database()
-#         cached_data = db.get_leads(location)
-#         if cached_data:
-#             return cached_data
-
-#     # Start background scraping task
-#     background_tasks.add_task(background_scrape, location, headless, use_cache)
-
-#     # Initialize status
-#     scraping_status[location] = {
-#         "status": "in_progress",
-#         "message": "Starting scrape...",
-#         "progress": 0,
-#     }
-
-#     return {
-#         "status": "started",
-#         "message": "Scraping started. Check /progress/{location} for updates or /status/{location} for completion status.",
-#         "location": location,
-#     }
-
-
-# async def background_scrape(location: str, headless=None, use_cache=True):
-#     def progress_callback(message):
-#         if location in scraping_status:
-#             scraping_status[location]["message"] = message
-#             logger.info(f"Progress for {location}: {message}")
-
-#     try:
-#         result = await scrape(
-#             location,
-#             headless=headless,
-#             use_cache=use_cache,
-#             progress_callback=progress_callback,
-#         )
-
-#         if "error" in result:
-#             scraping_status[location] = {
-#                 "status": "error",
-#                 "message": result["error"],
-#                 "progress": 0,
-#             }
-#         else:
-#             scraping_status[location] = {
-#                 "status": "completed",
-#                 "message": f"Found {result['total_leads']} leads",
-#                 "progress": 100,
-#                 "result": result,
-#             }
-
-#     except Exception as e:
-#         logger.error(f"Background scrape error for {location}: {e}")
-#         scraping_status[location] = {
-#             "status": "error",
-#             "message": str(e),
-#             "progress": 0,
-#         }
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
 
 
 @app.get("/street-view/image")
@@ -289,7 +178,7 @@ async def get_leads(
                 "last_sale_date": "last_sale_date",
                 "last_sale_amount": "last_sale_amount",
                 "loan_balance": "total_loan_balance",
-                "interest_rate": "loan_interest_rate"
+                "interest_rate": "loan_interest_rate",
             }
 
             # Split the sort parameter (e.g., "value_desc" -> ["value", "desc"])
@@ -311,3 +200,119 @@ async def get_leads(
     except Exception as e:
         logger.error(f"Error fetching paginated leads: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Global dict to track scraping progress
+# scraping_status = {}
+
+
+# @app.get("/status/{location}")
+# async def check_location_status(location: str):
+#     db = Database()
+
+#     # Check if location exists in database
+#     cached = db.location_exists(location)
+
+#     # Check if currently being scraped
+#     is_scraping = (
+#         location in scraping_status
+#         and scraping_status[location]["status"] == "in_progress"
+#     )
+
+#     return {
+#         "location": location,
+#         "cached": cached,
+#         "is_scraping": is_scraping,
+#         "scraping_progress": (
+#             scraping_status.get(location, {}).get("message", "") if is_scraping else ""
+#         ),
+#     }
+
+
+# @app.get("/progress/{location}")
+# async def get_scraping_progress(location: str):
+#     if location in scraping_status:
+#         return scraping_status[location]
+#     else:
+#         return {
+#             "status": "not_found",
+#             "message": "No scraping job found for this location",
+#         }
+
+
+# @app.post("/scrape/{location}")
+# async def scrape_leads(
+#     location: str,
+#     background_tasks: BackgroundTasks,
+#     headless: bool = Query(None, description="Override headless mode"),
+#     use_cache: bool = Query(True, description="Use cached data if available"),
+# ):
+#     # Check if already being scraped
+#     if (
+#         location in scraping_status
+#         and scraping_status[location]["status"] == "in_progress"
+#     ):
+#         return {
+#             "error": "Scraping already in progress for this location",
+#             "status": "in_progress",
+#         }
+
+#     # Check cache first
+#     if use_cache:
+#         db = Database()
+#         cached_data = db.get_leads(location)
+#         if cached_data:
+#             return cached_data
+
+#     # Start background scraping task
+#     background_tasks.add_task(background_scrape, location, headless, use_cache)
+
+#     # Initialize status
+#     scraping_status[location] = {
+#         "status": "in_progress",
+#         "message": "Starting scrape...",
+#         "progress": 0,
+#     }
+
+#     return {
+#         "status": "started",
+#         "message": "Scraping started. Check /progress/{location} for updates or /status/{location} for completion status.",
+#         "location": location,
+#     }
+
+
+# async def background_scrape(location: str, headless=None, use_cache=True):
+#     def progress_callback(message):
+#         if location in scraping_status:
+#             scraping_status[location]["message"] = message
+#             logger.info(f"Progress for {location}: {message}")
+
+#     try:
+#         result = await scrape(
+#             location,
+#             headless=headless,
+#             use_cache=use_cache,
+#             progress_callback=progress_callback,
+#         )
+
+#         if "error" in result:
+#             scraping_status[location] = {
+#                 "status": "error",
+#                 "message": result["error"],
+#                 "progress": 0,
+#             }
+#         else:
+#             scraping_status[location] = {
+#                 "status": "completed",
+#                 "message": f"Found {result['total_leads']} leads",
+#                 "progress": 100,
+#                 "result": result,
+#             }
+
+#     except Exception as e:
+#         logger.error(f"Background scrape error for {location}: {e}")
+#         scraping_status[location] = {
+#             "status": "error",
+#             "message": str(e),
+#             "progress": 0,
+#         }
