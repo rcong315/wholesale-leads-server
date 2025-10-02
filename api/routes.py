@@ -1,7 +1,6 @@
 from fastapi import FastAPI, Query, BackgroundTasks, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from scraper.scraper import scrape
 from database import Database
 from street_view.api import StreetViewAPI
 from typing import Optional, Dict
@@ -29,41 +28,41 @@ app.add_middleware(
 )
 
 # Global dict to track scraping progress
-scraping_status = {}
+# scraping_status = {}
 
 
-@app.get("/status/{location}")
-async def check_location_status(location: str):
-    db = Database()
+# @app.get("/status/{location}")
+# async def check_location_status(location: str):
+#     db = Database()
 
-    # Check if location exists in database
-    cached = db.location_exists(location)
+#     # Check if location exists in database
+#     cached = db.location_exists(location)
 
-    # Check if currently being scraped
-    is_scraping = (
-        location in scraping_status
-        and scraping_status[location]["status"] == "in_progress"
-    )
+#     # Check if currently being scraped
+#     is_scraping = (
+#         location in scraping_status
+#         and scraping_status[location]["status"] == "in_progress"
+#     )
 
-    return {
-        "location": location,
-        "cached": cached,
-        "is_scraping": is_scraping,
-        "scraping_progress": (
-            scraping_status.get(location, {}).get("message", "") if is_scraping else ""
-        ),
-    }
+#     return {
+#         "location": location,
+#         "cached": cached,
+#         "is_scraping": is_scraping,
+#         "scraping_progress": (
+#             scraping_status.get(location, {}).get("message", "") if is_scraping else ""
+#         ),
+#     }
 
 
-@app.get("/progress/{location}")
-async def get_scraping_progress(location: str):
-    if location in scraping_status:
-        return scraping_status[location]
-    else:
-        return {
-            "status": "not_found",
-            "message": "No scraping job found for this location",
-        }
+# @app.get("/progress/{location}")
+# async def get_scraping_progress(location: str):
+#     if location in scraping_status:
+#         return scraping_status[location]
+#     else:
+#         return {
+#             "status": "not_found",
+#             "message": "No scraping job found for this location",
+#         }
 
 
 # @app.post("/scrape/{location}")
@@ -289,7 +288,7 @@ async def get_leads(
                 "last_sale_date": "last_sale_date",
                 "last_sale_amount": "last_sale_amount",
                 "loan_balance": "total_loan_balance",
-                "interest_rate": "loan_interest_rate"
+                "interest_rate": "loan_interest_rate",
             }
 
             # Split the sort parameter (e.g., "value_desc" -> ["value", "desc"])
