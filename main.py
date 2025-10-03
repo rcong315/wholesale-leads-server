@@ -2,7 +2,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import app as leads_app
-from database import Database
+from db.database import Database
 
 # Configure logging
 logging.basicConfig(

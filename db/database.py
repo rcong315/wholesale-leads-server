@@ -4,6 +4,8 @@ import os
 from datetime import datetime
 from typing import List, Dict, Optional
 
+from .schema import CSV_COLUMNS, NUMERIC_COLUMNS, CREATE_TABLE_SQL, INDEXES
+
 try:
     import psutil
 
@@ -15,66 +17,6 @@ except ImportError:
     )
 
 logger = logging.getLogger(__name__)
-
-# Column mapping for easy schema modifications
-CSV_COLUMNS = [
-    "property_address",
-    "city",
-    "state",
-    "zip",
-    "phone_numbers",
-    "owner_first_name",
-    "owner_last_name",
-    "list_count",
-    "tag_count",
-    "mailing_address",
-    "mailing_city",
-    "mailing_state",
-    "mailing_zip_code",
-    "emails",
-    "pics",
-    "apn",
-    "est_value",
-    "county",
-    "date_added",
-    "date_updated",
-    "last_sale_date",
-    "last_sale_amount",
-    "mailing_county",
-    "salesforce_lead_id",
-    "vacancy",
-    "mailing_vacancy",
-    "opt_out",
-    "property_type",
-    "owner_occupied",
-    "bedrooms",
-    "bathrooms",
-    "property_sqft",
-    "lot_size",
-    "year_build",
-    "assessed_value",
-    "total_loan_balance",
-    "est_equity",
-    "est_ltv",
-    "mls_status",
-    "data_provider_ranking",
-    "probate",
-    "liens",
-    "pre_foreclosure",
-    "taxes",
-    "vacant",
-    "zoning",
-    "loan_type",
-    "loan_interest_rate",
-    "owner_2_first_name",
-    "owner_2_last_name",
-    "self_managed",
-    "pushed_to_batchdialer",
-    "lead_score",
-    "arv",
-    "spread",
-    "pct_arv",
-]
 
 # Configuration for memory management
 DEFAULT_CHUNK_SIZE = 500  # Process leads in chunks of 500
@@ -96,88 +38,16 @@ class Database:
         """Initialize database and create tables"""
         try:
             with sqlite3.connect(self.db_path) as conn:
-                conn.execute(
-                    """
-                CREATE TABLE IF NOT EXISTS leads (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    property_address TEXT,
-                    city TEXT,
-                    state TEXT,
-                    zip TEXT,
-                    phone_numbers TEXT,
-                    owner_first_name TEXT,
-                    owner_last_name TEXT,
-                    list_count INTEGER,
-                    tag_count INTEGER,
-                    mailing_address TEXT,
-                    mailing_city TEXT,
-                    mailing_state TEXT,
-                    mailing_zip_code TEXT,
-                    emails TEXT,
-                    pics TEXT,
-                    apn TEXT,
-                    est_value TEXT,
-                    county TEXT,
-                    date_added TEXT,
-                    date_updated TEXT,
-                    last_sale_date TEXT,
-                    last_sale_amount TEXT,
-                    mailing_county TEXT,
-                    salesforce_lead_id TEXT,
-                    vacancy TEXT,
-                    mailing_vacancy TEXT,
-                    opt_out TEXT,
-                    property_type TEXT,
-                    owner_occupied TEXT,
-                    bedrooms INTEGER,
-                    bathrooms INTEGER,
-                    property_sqft TEXT,
-                    lot_size TEXT,
-                    year_build INTEGER,
-                    assessed_value TEXT,
-                    total_loan_balance TEXT,
-                    est_equity TEXT,
-                    est_ltv TEXT,
-                    mls_status TEXT,
-                    data_provider_ranking TEXT,
-                    probate TEXT,
-                    liens TEXT,
-                    pre_foreclosure TEXT,
-                    taxes TEXT,
-                    vacant TEXT,
-                    zoning TEXT,
-                    loan_type TEXT,
-                    loan_interest_rate TEXT,
-                    owner_2_first_name TEXT,
-                    owner_2_last_name TEXT,
-                    self_managed TEXT,
-                    pushed_to_batchdialer TEXT,
-                    lead_score INTEGER,
-                    arv TEXT,
-                    spread TEXT,
-                    pct_arv TEXT,
-                    location TEXT,
-                    scraped_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-                """
-                )
+                # Create table using schema definition
+                conn.execute(CREATE_TABLE_SQL)
 
-                # Create indexes for common queries
-                conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_location ON leads(location)"
-                )
-                conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_scraped_at ON leads(scraped_at)"
-                )
-                conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_created_at ON leads(created_at)"
-                )
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_city ON leads(city)")
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_zip ON leads(zip)")
-                conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_property_address ON leads(property_address)"
-                )
+                # Create indexes from schema definition
+                for index in INDEXES:
+                    index_name = index["name"]
+                    columns = ", ".join(index["columns"])
+                    conn.execute(
+                        f"CREATE INDEX IF NOT EXISTS {index_name} ON leads({columns})"
+                    )
 
                 # Check if we need to add created_at column to existing tables
                 cursor = conn.execute("PRAGMA table_info(leads)")
@@ -187,6 +57,18 @@ class Database:
                         "ALTER TABLE leads ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP"
                     )
                     logger.info("Added created_at column to existing leads table")
+
+                # Check if we need to add is_favorite column to existing tables
+                cursor = conn.execute("PRAGMA table_info(leads)")
+                columns = [column[1] for column in cursor.fetchall()]
+                if "is_favorite" not in columns:
+                    conn.execute(
+                        "ALTER TABLE leads ADD COLUMN is_favorite BOOLEAN DEFAULT 0"
+                    )
+                    conn.execute(
+                        "CREATE INDEX IF NOT EXISTS idx_is_favorite ON leads(is_favorite)"
+                    )
+                    logger.info("Added is_favorite column to existing leads table")
 
                 conn.commit()
                 logger.info("Database initialized successfully")
@@ -262,14 +144,7 @@ class Database:
                             )
                             if db_key in CSV_COLUMNS:
                                 # Handle numeric fields
-                                if db_key in [
-                                    "list_count",
-                                    "tag_count",
-                                    "bedrooms",
-                                    "bathrooms",
-                                    "year_build",
-                                    "lead_score",
-                                ]:
+                                if db_key in NUMERIC_COLUMNS:
                                     try:
                                         db_lead[db_key] = (
                                             int(value)
@@ -413,9 +288,10 @@ class Database:
                         "minInterestRate",
                         "maxInterestRate",
                     ]
+                    special_filters = ["isFavorite"]
 
                     for key, value in filters.items():
-                        if value is not None and key not in range_filters:
+                        if value is not None and key not in range_filters and key not in special_filters:
                             if key == "city":
                                 where_conditions.append(f"{key} LIKE ?")
                                 params.append(f"{value}%")
@@ -437,6 +313,10 @@ class Database:
                             else:
                                 where_conditions.append(f"{key} = ?")
                                 params.append(value)
+
+                    # Handle favorites filter
+                    if "isFavorite" in filters and filters["isFavorite"]:
+                        where_conditions.append("is_favorite = 1")
 
                     # Handle value range filters (remove $ and commas before casting)
                     if "minValue" in filters and filters["minValue"] is not None:
@@ -584,4 +464,63 @@ class Database:
 
         except Exception as e:
             logger.error(f"Failed to get filter options: {e}")
+            raise
+
+    def update_lead(self, lead_id: int, updates: Dict) -> bool:
+        """Update a lead by ID and automatically mark as favorite"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                # Build SET clause
+                set_clauses = []
+                params = []
+
+                for key, value in updates.items():
+                    set_clauses.append(f"{key} = ?")
+                    params.append(value)
+
+                # Always mark as favorite when updating
+                set_clauses.append("is_favorite = ?")
+                params.append(1)
+
+                # Add lead_id to params for WHERE clause
+                params.append(lead_id)
+
+                update_query = f"UPDATE leads SET {', '.join(set_clauses)} WHERE id = ?"
+                cursor = conn.execute(update_query, params)
+                conn.commit()
+
+                return cursor.rowcount > 0
+
+        except Exception as e:
+            logger.error(f"Failed to update lead {lead_id}: {e}")
+            raise
+
+    def get_lead_by_id(self, lead_id: int) -> Optional[Dict]:
+        """Get a single lead by ID"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute("SELECT * FROM leads WHERE id = ?", (lead_id,))
+                row = cursor.fetchone()
+
+                if row:
+                    return dict(row)
+                return None
+
+        except Exception as e:
+            logger.error(f"Failed to get lead {lead_id}: {e}")
+            raise
+
+    def toggle_favorite(self, lead_id: int, is_favorite: bool) -> bool:
+        """Toggle favorite status for a lead"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                update_query = "UPDATE leads SET is_favorite = ? WHERE id = ?"
+                cursor = conn.execute(update_query, (1 if is_favorite else 0, lead_id))
+                conn.commit()
+
+                return cursor.rowcount > 0
+
+        except Exception as e:
+            logger.error(f"Failed to toggle favorite for lead {lead_id}: {e}")
             raise

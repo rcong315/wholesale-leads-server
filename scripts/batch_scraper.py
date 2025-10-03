@@ -6,7 +6,7 @@ import time
 from datetime import datetime
 from ca_locations import get_locations
 from scraper.scraper import BatchLeadsScraper
-from database import Database
+from db.database import Database
 
 # Configure logging
 logging.basicConfig(
@@ -75,7 +75,9 @@ class BatchScraper:
             logger.info("No new locations to process - all are already cached!")
             return
 
-        logger.info(f"Starting batch scrape of {total_locations} California locations...")
+        logger.info(
+            f"Starting batch scrape of {total_locations} California locations..."
+        )
         logger.info(f"Max retries per location: {self.max_retries}")
 
         self.start_time = time.time()
@@ -88,22 +90,30 @@ class BatchScraper:
             try:
                 # Check if location already exists in database (if skip_existing is enabled)
                 if self.skip_existing and self.database.location_exists(location):
-                    logger.info(f"Location {location} already exists in database, skipping...")
+                    logger.info(
+                        f"Location {location} already exists in database, skipping..."
+                    )
                     self.skipped += 1
                     continue
 
                 # Scrape the location (using chunked processing - data is saved during scraping)
-                leads = await self.scraper.scrape_location(location, use_chunked_processing=True)
+                leads = await self.scraper.scrape_location(
+                    location, use_chunked_processing=True
+                )
 
                 # Check results - chunked processing saves data during scraping
                 if leads and len(leads) > 0:
-                    logger.info(f"Successfully processed location: {location} ({len(leads)} leads)")
+                    logger.info(
+                        f"Successfully processed location: {location} ({len(leads)} leads)"
+                    )
                     self.processed += 1
                 else:
                     # Check if location has any leads in database (might have been saved via chunked processing)
                     db_result = self.database.get_leads(location)
-                    if db_result and db_result.get('total_leads', 0) > 0:
-                        logger.info(f"Successfully processed location: {location} ({db_result['total_leads']} leads saved via chunked processing)")
+                    if db_result and db_result.get("total_leads", 0) > 0:
+                        logger.info(
+                            f"Successfully processed location: {location} ({db_result['total_leads']} leads saved via chunked processing)"
+                        )
                         self.processed += 1
                     else:
                         logger.info(f"No leads found for location: {location}")
@@ -120,7 +130,9 @@ class BatchScraper:
                 estimated_remaining = avg_time_per_location * (total_locations - i)
 
                 logger.info(f"--- Progress Report ---")
-                logger.info(f"Processed: {i}/{total_locations} ({(i/total_locations)*100:.1f}%)")
+                logger.info(
+                    f"Processed: {i}/{total_locations} ({(i/total_locations)*100:.1f}%)"
+                )
                 logger.info(f"Fresh scrapes: {self.processed}")
                 logger.info(f"Cached results: {self.skipped}")
                 logger.info(f"Failed: {self.failed}")
@@ -128,7 +140,9 @@ class BatchScraper:
                 logger.info(
                     f"Estimated remaining: {estimated_remaining/60:.1f} minutes"
                 )
-                logger.info(f"Average time per location: {avg_time_per_location:.2f} seconds")
+                logger.info(
+                    f"Average time per location: {avg_time_per_location:.2f} seconds"
+                )
                 logger.info("---------------------")
 
             # Add delay between requests to be respectful to the server
@@ -154,7 +168,9 @@ class BatchScraper:
         logger.info(
             f"Total time: {elapsed_time/60:.1f} minutes ({elapsed_time/3600:.1f} hours)"
         )
-        logger.info(f"Average time per location: {elapsed_time/total_locations:.2f} seconds")
+        logger.info(
+            f"Average time per location: {elapsed_time/total_locations:.2f} seconds"
+        )
         logger.info("=" * 50)
 
 
