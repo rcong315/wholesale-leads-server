@@ -1,7 +1,7 @@
-from fastapi import FastAPI, Query, BackgroundTasks, HTTPException, Body
+from fastapi import FastAPI, Query, BackgroundTasks, HTTPException, Body, Path
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from database import Database
+from db.database import Database
 from street_view.api import StreetViewAPI
 from typing import Optional, Dict
 import logging
@@ -171,6 +171,68 @@ async def get_leads(
         return result
     except Exception as e:
         logger.error(f"Error fetching paginated leads: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/leads/{lead_id}")
+async def update_lead(
+    lead_id: int = Path(..., description="Lead ID to update"),
+    updates: Dict = Body(..., description="Fields to update"),
+):
+    """Update a lead by ID and automatically mark as favorite"""
+    db = Database()
+
+    try:
+        # Verify lead exists
+        lead = db.get_lead_by_id(lead_id)
+        if not lead:
+            raise HTTPException(
+                status_code=404, detail=f"Lead with ID {lead_id} not found"
+            )
+
+        # Update the lead
+        success = db.update_lead(lead_id, updates)
+        if success:
+            updated_lead = db.get_lead_by_id(lead_id)
+            return {"success": True, "lead": updated_lead}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update lead")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating lead {lead_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/leads/{lead_id}/favorite")
+async def toggle_favorite(
+    lead_id: int = Path(..., description="Lead ID to favorite/unfavorite"),
+    is_favorite: bool = Body(..., description="Favorite status"),
+):
+    """Toggle favorite status for a lead"""
+    db = Database()
+
+    try:
+        # Verify lead exists
+        lead = db.get_lead_by_id(lead_id)
+        if not lead:
+            raise HTTPException(
+                status_code=404, detail=f"Lead with ID {lead_id} not found"
+            )
+
+        # Update only the favorite status
+        success = db.toggle_favorite(lead_id, is_favorite)
+        if success:
+            updated_lead = db.get_lead_by_id(lead_id)
+            return {"success": True, "lead": updated_lead}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to toggle favorite")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error toggling favorite for lead {lead_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

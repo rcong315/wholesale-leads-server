@@ -8,7 +8,8 @@ import sys
 import os
 
 # Add the server directory to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'server'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "server"))
+
 
 def test_imports():
     """Test that all main modules can be imported"""
@@ -17,22 +18,26 @@ def test_imports():
     try:
         # Test Database module
         print("  - Testing Database import...")
-        from database import Database
+        from db.database import Database
+
         print("    ✓ Database imported successfully")
 
         # Test API routes
         print("  - Testing API routes import...")
         from api.routes import app
+
         print("    ✓ FastAPI routes imported successfully")
 
         # Test scraper module
         print("  - Testing scraper import...")
         from scraper.scraper import scrape, BatchLeadsScraper
+
         print("    ✓ Scraper modules imported successfully")
 
         # Test config
         print("  - Testing config import...")
         from scraper.config import Config
+
         print("    ✓ Config imported successfully")
 
         print("✓ All imports successful!")
@@ -45,17 +50,18 @@ def test_imports():
         print(f"✗ Unexpected error: {e}")
         return False
 
+
 def test_database_utilities():
     """Test Database utility functions"""
     print("\nTesting Database utilities...")
 
     try:
-        from database import Database
+        from db.database import Database
         import tempfile
         import os
 
         # Create a temporary database for testing
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.db') as tmp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".db") as tmp_file:
             tmp_db_path = tmp_file.name
 
         try:
@@ -65,8 +71,18 @@ def test_database_utilities():
 
             # Test saving and retrieving leads
             test_data = [
-                {"Property Address": "123 Main St", "City": "Anytown", "Owner First Name": "John", "Owner Last Name": "Doe"},
-                {"Property Address": "456 Oak Ave", "City": "Somewhere", "Owner First Name": "Jane", "Owner Last Name": "Smith"}
+                {
+                    "Property Address": "123 Main St",
+                    "City": "Anytown",
+                    "Owner First Name": "John",
+                    "Owner Last Name": "Doe",
+                },
+                {
+                    "Property Address": "456 Oak Ave",
+                    "City": "Somewhere",
+                    "Owner First Name": "Jane",
+                    "Owner Last Name": "Smith",
+                },
             ]
 
             saved_count = db.save_leads("test_location", test_data)
@@ -94,6 +110,7 @@ def test_database_utilities():
         print(f"  ✗ Database utilities test failed: {e}")
         return False
 
+
 def test_api_structure():
     """Test that API routes are properly structured"""
     print("\nTesting API structure...")
@@ -103,7 +120,11 @@ def test_api_structure():
 
         # Check that key routes exist
         routes = [route.path for route in app.routes]
-        expected_routes = ["/status/{location}", "/progress/{location}", "/scrape/{location}"]
+        expected_routes = [
+            "/status/{location}",
+            "/progress/{location}",
+            "/scrape/{location}",
+        ]
 
         for expected_route in expected_routes:
             if any(expected_route in route for route in routes):
@@ -118,6 +139,7 @@ def test_api_structure():
     except Exception as e:
         print(f"  ✗ API structure test failed: {e}")
         return False
+
 
 def main():
     """Run all tests"""
@@ -143,6 +165,7 @@ def main():
         print("✗ Some tests failed. Please check the errors above.")
 
     return all_tests_passed
+
 
 if __name__ == "__main__":
     success = main()

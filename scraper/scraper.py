@@ -5,7 +5,7 @@ from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 
 from scraper.config import Config
-from database import Database
+from db.database import Database
 
 logger = logging.getLogger(__name__)
 
@@ -360,7 +360,7 @@ class BatchLeadsScraper:
                             .replace("?", "")
                             .replace("%", "pct")
                         )
-                        from database import CSV_COLUMNS
+                        from db.database import CSV_COLUMNS
 
                         if db_key in CSV_COLUMNS:
                             # Handle numeric fields
