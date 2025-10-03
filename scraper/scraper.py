@@ -202,16 +202,34 @@ class BatchLeadsScraper:
             await page.wait_for_timeout(3000)
 
             if progress_callback:
-                progress_callback(f"Searching for location {location}...")
+                progress_callback(f"Filtering by city: {location}...")
 
             try:
-                location_input = await page.query_selector('input[id="placeInput"]')
-                if location_input:
-                    await location_input.fill(str(location))
-                    await location_input.press("Enter")
-                    await page.wait_for_timeout(3000)
-            except Exception:
-                pass
+                # Find and click the City column filter icon
+                city_column_filter = await page.query_selector(
+                    ".col-property_city .icon_column_filter_container img"
+                )
+                if city_column_filter:
+                    await city_column_filter.click()
+                    await page.wait_for_timeout(1000)
+
+                    # Find the text input in the filter dropdown and enter the city
+                    # The filter dropdown should now be open, look for an input field
+                    filter_input = await page.query_selector(
+                        '.col-property_city input[type="text"], .col-property_city input:not([type])'
+                    )
+                    if filter_input:
+                        await filter_input.fill(str(location))
+                        # Press Enter to apply the filter
+                        await filter_input.press("Enter")
+                        await page.wait_for_timeout(15000)
+                        logger.info(f"Applied city filter for: {location}")
+                    else:
+                        logger.warning("Could not find city filter input field")
+                else:
+                    logger.warning("Could not find city column filter icon")
+            except Exception as e:
+                logger.error(f"Error applying city filter: {e}")
 
             # Set rows per page to 100 for more efficient scraping
             try:
