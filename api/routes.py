@@ -105,40 +105,12 @@ async def get_street_view_image_bytes(
         )
 
 
-@app.get("/leads/{location}")
-async def get_leads_for_location(location: str):
-    """Get all leads for a specific location"""
-    db = Database()
-    leads_data = db.get_leads(location)
-
-    if not leads_data:
-        raise HTTPException(
-            status_code=404, detail=f"No leads found for location {location}"
-        )
-
-    return leads_data
-
-
 @app.get("/locations")
 async def get_all_locations():
     """Get all cached locations"""
     db = Database()
     locations = db.get_locations()
     return {"locations": locations, "count": len(locations)}
-
-
-@app.delete("/leads/{location}")
-async def delete_leads_for_location(location: str):
-    """Delete all leads for a specific location"""
-    db = Database()
-    success = db.delete_location(location)
-
-    if not success:
-        raise HTTPException(
-            status_code=404, detail=f"No leads found for location {location}"
-        )
-
-    return {"message": f"Successfully deleted leads for location {location}"}
 
 
 @app.get("/filter-options")

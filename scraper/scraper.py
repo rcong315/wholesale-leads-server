@@ -174,14 +174,9 @@ class BatchLeadsScraper:
             logger.error(f"Scraping error: {e}")
             return [], None
 
-    async def scrape_location(
-        self, location, progress_callback=None, use_chunked_processing=True
-    ):
+    async def scrape_location(self, location, progress_callback=None):
         try:
-            if use_chunked_processing:
-                return await self._scrape_location_chunked(location, progress_callback)
-            else:
-                return await self._scrape_location_legacy(location, progress_callback)
+            return await self._scrape_location_chunked(location, progress_callback)
 
         except Exception as e:
             logger.error(f"Scraper error: {e}")
@@ -413,106 +408,6 @@ class BatchLeadsScraper:
         except Exception as e:
             logger.error(f"Failed to save chunk for location {location}: {e}")
             return 0
-
-    async def _scrape_location_legacy(self, location, progress_callback=None):
-        """Legacy scraping method that loads all leads into memory (for backward compatibility)"""
-        try:
-            all_leads = []
-            page_num = 1
-            max_pages = self.config.MAX_PAGES
-            total_leads = None
-            total_pages = None
-
-            page = (
-                self.context.pages[0]
-                if self.context.pages
-                else await self.context.new_page()
-            )
-            search_url = f"{self.config.BATCHLEADS_BASE_URL}app/mylist-new"
-            await page.goto(search_url)
-            await page.wait_for_timeout(3000)
-
-            if progress_callback:
-                progress_callback(f"Searching for location {location}...")
-
-            try:
-                location_input = await page.query_selector('input[id="placeInput"]')
-                if location_input:
-                    await location_input.fill(str(location))
-                    await location_input.press("Enter")
-                    await page.wait_for_timeout(3000)
-            except Exception:
-                pass
-
-            # Set rows per page to 100 for more efficient scraping
-            try:
-                if progress_callback:
-                    progress_callback("Setting pagination to 100 rows per page...")
-
-                # Look for the rows per page dropdown
-                rows_dropdown = await page.query_selector("select")
-                if rows_dropdown:
-                    await rows_dropdown.select_option(value="100")
-                    await page.wait_for_timeout(2000)
-                    logger.info("Set pagination to 100 rows per page")
-                else:
-                    logger.debug("Rows per page dropdown not found")
-            except Exception as e:
-                logger.debug(f"Could not set rows per page: {e}")
-
-            while page_num <= max_pages:
-                leads, soup = await self.scrape_leads_table(page, page_num)
-
-                # Extract pagination info on first page
-                if page_num == 1 and soup:
-                    pagination_info = self.extract_pagination_info(soup)
-                    if pagination_info:
-                        total_leads = pagination_info["total_leads"]
-                        # Estimate total pages (assuming consistent page size)
-                        if len(leads) > 0:
-                            total_pages = (total_leads + len(leads) - 1) // len(leads)
-                        if progress_callback:
-                            progress_callback(
-                                f"Found {total_leads} total leads across approximately {total_pages} pages"
-                            )
-
-                if not leads:
-                    break
-
-                all_leads.extend(leads)
-                logger.info(f"Page {page_num}: Added {len(leads)} leads")
-
-                # Enhanced progress message
-                if progress_callback:
-                    if total_leads and total_pages:
-                        progress_callback(
-                            f"Scraping page {page_num} of {total_pages} ({len(all_leads)}/{total_leads} leads)"
-                        )
-                    else:
-                        progress_callback(
-                            f"Scraping page {page_num} ({len(all_leads)} leads so far)"
-                        )
-
-                page_num += 1
-
-                next_button = await page.query_selector('a[aria-label="Next"]')
-                if next_button and await next_button.is_enabled():
-                    await next_button.click()
-                    await page.wait_for_timeout(3000)
-                else:
-                    break
-
-            if progress_callback:
-                progress_callback(
-                    f"Completed: Scraped {len(all_leads)} leads from {page_num - 1} pages"
-                )
-
-            self.all_data = all_leads
-            return all_leads
-
-        except Exception as e:
-            logger.error(f"Legacy scraper error: {e}")
-            return []
 
     async def close(self):
         try:

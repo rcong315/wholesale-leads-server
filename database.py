@@ -386,21 +386,6 @@ class Database:
             logger.error(f"Failed to get locations: {e}")
             return []
 
-    def delete_location(self, location: str) -> bool:
-        """Delete all leads for a location"""
-        try:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    "DELETE FROM leads WHERE location = ?", (location,)
-                )
-                conn.commit()
-                logger.info(f"Deleted {cursor.rowcount} leads for location {location}")
-                return cursor.rowcount > 0
-
-        except Exception as e:
-            logger.error(f"Failed to delete location {location}: {e}")
-            return False
-
     def get_leads_paginated(
         self,
         offset: int = 0,
