@@ -399,8 +399,8 @@ class Database:
                 count_query = f"SELECT COUNT(*) FROM leads {where_clause}"
                 total = conn.execute(count_query, params).fetchone()[0]
 
-                # Get paginated results
-                query = f"SELECT * FROM leads {where_clause} ORDER BY {sort_by} {sort_order} LIMIT ? OFFSET ?"
+                # Get paginated results - favorited leads first, then by specified sort
+                query = f"SELECT * FROM leads {where_clause} ORDER BY is_favorite DESC, {sort_by} {sort_order} LIMIT ? OFFSET ?"
                 cursor = conn.execute(query, params + [limit, offset])
                 rows = cursor.fetchall()
 
