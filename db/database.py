@@ -291,7 +291,11 @@ class Database:
                     special_filters = ["isFavorite"]
 
                     for key, value in filters.items():
-                        if value is not None and key not in range_filters and key not in special_filters:
+                        if (
+                            value is not None
+                            and key not in range_filters
+                            and key not in special_filters
+                        ):
                             if key == "city":
                                 where_conditions.append(f"{key} LIKE ?")
                                 params.append(f"{value}%")
@@ -399,8 +403,8 @@ class Database:
                 count_query = f"SELECT COUNT(*) FROM leads {where_clause}"
                 total = conn.execute(count_query, params).fetchone()[0]
 
-                # Get paginated results - favorited leads first, then by specified sort
-                query = f"SELECT * FROM leads {where_clause} ORDER BY is_favorite DESC, {sort_by} {sort_order} LIMIT ? OFFSET ?"
+                # Get paginated results - by specified sort
+                query = f"SELECT * FROM leads {where_clause} ORDER BY {sort_by} {sort_order} LIMIT ? OFFSET ?"
                 cursor = conn.execute(query, params + [limit, offset])
                 rows = cursor.fetchall()
 
